@@ -11,7 +11,9 @@ import com.aresstack.webserver.domain.WebServerConfiguration;
  */
 public class CaddyfileRenderer {
 
-    public static final String ADMIN_LISTEN = "127.0.0.1:2019";
+    // Bewusst nicht Caddys Default-Port 2019: ein fremder Caddy auf dem
+    // Standardport wird so gar nicht erst mit unserer Instanz verwechselt.
+    public static final String ADMIN_LISTEN = "127.0.0.1:29171";
 
     /**
      * Produktion: Automatic HTTPS auf :80/:443, Admin auf 127.0.0.1:2019.

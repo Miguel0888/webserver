@@ -27,12 +27,15 @@ public class CaddyProcessManager implements CaddyRuntime {
 
     private final RuntimeDirectories directories;
     private final CaddyAdmin admin;
+    private final CaddyInstanceRegistry registry;
 
     private Process process;
 
     public CaddyProcessManager(RuntimeDirectories directories, CaddyAdmin admin) {
         this.directories = directories;
         this.admin = admin;
+        this.registry = new CaddyInstanceRegistry(
+                directories.caddyData().resolve("runtime.json"));
     }
 
     @Override
@@ -42,12 +45,23 @@ public class CaddyProcessManager implements CaddyRuntime {
         }
         directories.ensureExist();
         if (admin.isReachable()) {
-            // Adoptieren: ein Caddy läuft bereits (z.B. aus einem früheren
-            // Anwendungslauf). Statt einen zweiten Prozess zu starten, wird
-            // die aktuelle Konfiguration atomar in die Instanz geladen.
-            adoptRunningInstance();
-            return;
+            if (registry.matchesLiveProcess(directories.caddyBinary())) {
+                // Nachweislich unsere Instanz aus einem früheren Anwendungs-
+                // lauf: adoptieren und aktuelle Konfiguration atomar laden.
+                adoptRunningInstance();
+                return;
+            }
+            // Erreichbare Admin-API ohne Ownership-Nachweis: niemals /load
+            // oder /stop an eine fremde Instanz senden.
+            throw new IllegalStateException(
+                    "Another application is answering on the admin port ("
+                            + CaddyfileRenderer.ADMIN_LISTEN + ") that was not started by\n"
+                            + "AresStack Webserver. It will not be modified.\n"
+                            + "Stop the other instance or free the port, then try again.");
         }
+        // Kein erreichbarer Admin: ein eventuell vorhandener Registry-Eintrag
+        // ist veraltet.
+        registry.delete();
         ProcessBuilder builder = new ProcessBuilder(
                 directories.caddyBinary().toString(),
                 "run",
@@ -66,6 +80,7 @@ public class CaddyProcessManager implements CaddyRuntime {
             throw new UncheckedIOException("Cannot start caddy: " + directories.caddyBinary(), e);
         }
         waitUntilAdminReachable();
+        registry.save(process, directories.caddyBinary());
     }
 
     private void adoptRunningInstance() {
@@ -83,7 +98,12 @@ public class CaddyProcessManager implements CaddyRuntime {
     @Override
     public synchronized void stop() {
         boolean ownedProcessAlive = process != null && process.isAlive();
-        if (!ownedProcessAlive && !admin.isReachable()) {
+        boolean verifiedAdopted = !ownedProcessAlive
+                && registry.matchesLiveProcess(directories.caddyBinary())
+                && admin.isReachable();
+        if (!ownedProcessAlive && !verifiedAdopted) {
+            // Nichts Eigenes läuft — eine eventuell fremde Instanz auf dem
+            // Port wird nicht angefasst.
             process = null;
             return;
         }
@@ -101,18 +121,25 @@ public class CaddyProcessManager implements CaddyRuntime {
                 process.destroyForcibly();
             }
         } else {
-            // Eskalation per ProcessHandle gibt es nur für eigene Prozesse;
-            // hier bleibt der Nachweis über die Admin-API.
             waitWhile(admin::isReachable, STOP_TIMEOUT);
+            // Eskalation für die adoptierte (verifiziert eigene) Instanz.
+            registry.registeredPid()
+                    .flatMap(ProcessHandle::of)
+                    .filter(ProcessHandle::isAlive)
+                    .ifPresent(ProcessHandle::destroy);
         }
+        registry.delete();
         process = null;
     }
 
     @Override
     public synchronized boolean isRunning() {
-        // Eigener Prozess ODER eine erreichbare Admin-API — der Zustand darf
-        // einen Anwendungsneustart überleben.
-        return (process != null && process.isAlive()) || admin.isReachable();
+        // Eigener Prozess ODER verifiziert adoptierte AresStack-Instanz —
+        // eine bloß erreichbare Admin-API zählt nicht als Ownership.
+        if (process != null && process.isAlive()) {
+            return true;
+        }
+        return registry.matchesLiveProcess(directories.caddyBinary()) && admin.isReachable();
     }
 
     private void waitUntilAdminReachable() {

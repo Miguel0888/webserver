@@ -37,7 +37,7 @@ class CaddyfileRendererTest {
                 {
                     email admin@aresstack.de
                     acme_ca https://acme-v02.api.letsencrypt.org/directory
-                    admin 127.0.0.1:2019
+                    admin 127.0.0.1:29171
                 }
 
                 aresstack.de {
@@ -66,7 +66,7 @@ class CaddyfileRendererTest {
                 {
                     email admin@aresstack.de
                     acme_ca https://acme-v02.api.letsencrypt.org/directory
-                    admin 127.0.0.1:2019
+                    admin 127.0.0.1:29171
                 }
 
                 aresstack.de {
@@ -123,6 +123,6 @@ class CaddyfileRendererTest {
     @Test
     void adminIsAlwaysLoopbackOnly() {
         String caddyfile = renderer.render(config(List.of(Site.of("aresstack.de"))));
-        assertTrue(caddyfile.contains("admin 127.0.0.1:2019"));
+        assertTrue(caddyfile.contains("admin 127.0.0.1:29171"));
     }
 }
