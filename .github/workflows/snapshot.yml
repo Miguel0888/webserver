@@ -22,8 +22,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Test and build distribution
-        run: ./gradlew.bat test distZip
+      - name: Test and build fat jar
+        run: ./gradlew.bat test fatJar
 
       - name: Rotate previous snapshot
         env:
@@ -38,10 +38,11 @@ jobs:
         shell: bash
         run: |
           gh release create snapshot \
-            build/distributions/*.zip \
+            build/libs/*-all.jar \
             --prerelease \
             --title "Snapshot $(date -u +%Y-%m-%d) (${GITHUB_SHA::7})" \
             --notes "Automatischer Snapshot-Build von \`${GITHUB_SHA}\`.
 
-          Enthält die Windows-Distribution mit gebündeltem, checksummen-verifiziertem Caddy.
+          Selbst lauffähiges Fat JAR: \`java -jar aresstack-webserver-...-all.jar\` (Java 21).
+          Caddy (checksummen-verifiziert) ist eingebettet und wird beim ersten Start entpackt.
           Wird bei jedem Push ersetzt — kein stabiles Release."

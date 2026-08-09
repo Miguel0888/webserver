@@ -65,6 +65,7 @@ public final class WebServerMain {
     private static void launchGui(Path root) {
         RuntimeDirectories directories = new RuntimeDirectories(root);
         directories.ensureExist();
+        com.aresstack.webserver.infrastructure.caddy.CaddyBinaryProvider.ensureAvailable(directories);
 
         if (!Files.exists(directories.caddyBinary())) {
             JOptionPane.showMessageDialog(null,
@@ -109,6 +110,7 @@ public final class WebServerMain {
     private static void runHeadless(Path root) throws Exception {
         RuntimeDirectories directories = new RuntimeDirectories(root);
         directories.ensureExist();
+        com.aresstack.webserver.infrastructure.caddy.CaddyBinaryProvider.ensureAvailable(directories);
 
         if (!Files.exists(directories.configFile())) {
             System.err.println("Missing configuration: " + directories.configFile());

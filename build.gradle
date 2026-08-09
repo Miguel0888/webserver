@@ -103,6 +103,31 @@ def sha512(File file) {
 }
 
 // ---------------------------------------------------------------------------
+// Fat JAR: eine einzelne, selbst lauffähige Datei. Enthält alle Java-
+// Abhängigkeiten sowie caddy.exe als Ressource, die beim ersten Start nach
+// runtime/caddy/bin entpackt wird (CaddyBinaryProvider).
+// ---------------------------------------------------------------------------
+
+tasks.register('fatJar', Jar) {
+    group = 'build'
+    description = 'Builds a single self-contained runnable jar (app + deps + caddy)'
+    dependsOn 'downloadCaddy'
+    archiveBaseName = 'aresstack-webserver'
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+    from sourceSets.main.output
+    from({ configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }) {
+        exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+        exclude 'module-info.class', 'META-INF/versions/*/module-info.class'
+    }
+    from("runtime/caddy/bin/${caddyBinaryName}") { into 'caddy' }
+    from('runtime/caddy/LICENSE') { into 'caddy' }
+}
+
+// ---------------------------------------------------------------------------
 // Release (Slice 10): aresstack-webserver mit Caddy-Binary und Lizenz.
 // Persistent bei Updates: config/, data/, logs/ — austauschbar: bin/, lib/,
 // generated/. Die echte webserver.json gehört nie ins Release, nur die
@@ -171,16 +196,22 @@ tasks.register('downloadCaddy') {
 
         binDir.mkdirs()
         def tree = isWindows ? zipTree(archive) : tarTree(resources.gzip(archive))
-        copy {
-            from(tree) { include binaryName }
-            into binDir
+        // Nur fehlende Dateien extrahieren: die Version ist gepinnt, und das
+        // Binary kann von einem laufenden Server gesperrt sein.
+        if (!new File(binDir, binaryName).exists()) {
+            copy {
+                from(tree) { include binaryName }
+                into binDir
+            }
+            if (!isWindows) {
+                new File(binDir, binaryName).setExecutable(true)
+            }
         }
-        copy {
-            from(tree) { include 'LICENSE' }
-            into binDir.parentFile
-        }
-        if (!isWindows) {
-            new File(binDir, binaryName).setExecutable(true)
+        if (!new File(binDir.parentFile, 'LICENSE').exists()) {
+            copy {
+                from(tree) { include 'LICENSE' }
+                into binDir.parentFile
+            }
         }
         logger.lifecycle("Caddy binary ready: ${new File(binDir, binaryName)}")
     }
