@@ -120,9 +120,9 @@ public class PublicationStatusPresenter {
             }
             List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub,
                     new SubStatus("Public endpoint", SubState.PENDING,
-                            "Could not be verified from inside this network"),
+                            "Could not be verified from this network"),
                     new SubStatus("HTTPS", SubState.OFF, "Disabled for this service"));
-            return new PublicationStatus(Overall.SETTING_UP, "Verifying public access",
+            return new PublicationStatus(Overall.UNVERIFIED, "Public access not verified",
                     "Many routers cannot be reached on their own public address from inside.\n"
                             + "Check from another network (e.g. a phone on mobile data):\n"
                             + "http://" + host, null, subs, null);
@@ -152,19 +152,34 @@ public class PublicationStatusPresenter {
             }
             boolean expiringSoon = certificate.expires()
                     .before(new Date(System.currentTimeMillis() + EXPIRY_WARNING.toMillis()));
-            // Das gültige Zertifikat ist der End-to-End-Nachweis: Let's Encrypt
-            // konnte diesen Server nur aus dem Internet validieren. Der direkte
-            // Test der öffentlichen Adresse ist Bonus (NAT-Hairpinning nötig).
-            SubStatus publicSub = publicIp != null && tcpReachable(publicIp, configuration.httpsPort())
-                    ? new SubStatus("Public endpoint", SubState.OK, "Reachable from the internet")
-                    : new SubStatus("Public endpoint", SubState.OK, "Verified by certificate issuance");
-            List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub, publicSub,
-                    new SubStatus("HTTPS", SubState.OK, "Secured"));
-            return new PublicationStatus(Overall.LIVE,
-                    expiringSoon
-                            ? "Certificate expires soon · Renewal is automatic"
-                            : "Certificate valid · Automatic renewal",
-                    null, null, subs, certificate);
+            SubStatus httpsSub = new SubStatus("Certificate", SubState.OK,
+                    expiringSoon ? "Valid · expires soon, renews automatically" : "Valid · renews automatically");
+            // Das Zertifikat belegt nur die Erreichbarkeit zum Ausstellungs-
+            // zeitpunkt. Live gibt es ausschließlich nach positivem Test der
+            // öffentlichen Adresse; sonst wird das ehrlich als unverifiziert
+            // ausgewiesen (viele Router können ihre eigene öffentliche
+            // Adresse von innen nicht erreichen).
+            boolean publicVerified = publicIp != null
+                    && tcpReachable(publicIp, configuration.httpsPort());
+            if (publicVerified) {
+                List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub,
+                        new SubStatus("Public endpoint", SubState.OK, "Reachable from the internet"),
+                        httpsSub);
+                return new PublicationStatus(Overall.LIVE,
+                        expiringSoon
+                                ? "Certificate expires soon · Renewal is automatic"
+                                : "Certificate valid · Automatic renewal",
+                        null, null, subs, certificate);
+            }
+            List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub,
+                    new SubStatus("Public endpoint", SubState.PENDING,
+                            "Could not be verified from this network"),
+                    httpsSub);
+            return new PublicationStatus(Overall.UNVERIFIED, "Public access not verified",
+                    "Certificate and backend are fine, but public access cannot be\n"
+                            + "tested from inside this network. Check from another network\n"
+                            + "(e.g. a phone on mobile data): https://" + host,
+                    null, subs, certificate);
         } catch (Exception e) {
             // Alle Voraussetzungen erfüllt — jetzt arbeitet wirklich die
             // Anwendung selbst am Zertifikat.

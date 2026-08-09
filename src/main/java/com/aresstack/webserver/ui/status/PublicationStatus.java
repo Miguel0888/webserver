@@ -25,6 +25,13 @@ public record PublicationStatus(
         STOPPED,
         ACTION_REQUIRED,
         SETTING_UP,
+        /**
+         * Alles lokal Prüfbare ist in Ordnung, aber die öffentliche
+         * Erreichbarkeit konnte von hier aus nicht positiv nachgewiesen
+         * werden. Ein gültiges Zertifikat ist Zertifikatsstatus, kein
+         * Liveness-Beweis — Live gibt es nur mit verifiziertem Endpunkt.
+         */
+        UNVERIFIED,
         LIVE
     }
 

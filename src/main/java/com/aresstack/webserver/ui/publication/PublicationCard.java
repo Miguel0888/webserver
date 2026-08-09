@@ -86,7 +86,8 @@ class PublicationCard extends JPanel {
             text.add(Box.createVerticalStrut(4));
             text.add(dnsRecordBlock(status.dnsRecord()));
         }
-        if (status.overall() == PublicationStatus.Overall.ACTION_REQUIRED) {
+        if (status.overall() == PublicationStatus.Overall.ACTION_REQUIRED
+                || status.overall() == PublicationStatus.Overall.UNVERIFIED) {
             text.add(Box.createVerticalStrut(6));
             JPanel actionButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
             actionButtons.setOpaque(false);
@@ -221,6 +222,7 @@ class PublicationCard extends JPanel {
         return switch (overall) {
             case LIVE -> "● Live";
             case SETTING_UP -> "◌ Setting up";
+            case UNVERIFIED -> "◌ Not verified";
             case ACTION_REQUIRED -> "⚠ Action required";
             case STOPPED -> "○ Stopped";
         };
@@ -230,7 +232,7 @@ class PublicationCard extends JPanel {
         return switch (overall) {
             case LIVE -> LIVE;
             case ACTION_REQUIRED -> WARN;
-            case SETTING_UP, STOPPED -> MUTED;
+            case SETTING_UP, UNVERIFIED, STOPPED -> MUTED;
         };
     }
 }
