@@ -39,20 +39,15 @@ public record WebServerConfiguration(
 
     /**
      * Prüft konfigurationsübergreifende Invarianten. Wird vor jedem Rendern
-     * und Anwenden aufgerufen.
+     * und Anwenden aufgerufen. Eine leere Konfiguration (0 veröffentlichte
+     * Services) ist ein legitimer Zustand; jede FQDN darf veröffentlicht
+     * werden — das {@code domain}-Feld ist rein informativ.
      */
     public void validate() {
-        if (sites.isEmpty()) {
-            throw new IllegalArgumentException("Configuration must contain at least one site");
-        }
         Set<String> seenHosts = new HashSet<>();
         for (Site site : sites) {
             if (!seenHosts.add(site.host().value())) {
                 throw new IllegalArgumentException("Duplicate site host: " + site.host());
-            }
-            if (!site.host().isSameOrSubdomainOf(domain)) {
-                throw new IllegalArgumentException(
-                        "Site host " + site.host() + " is not part of domain " + domain);
             }
             Set<String> seenPaths = new HashSet<>();
             for (Route route : site.routes()) {

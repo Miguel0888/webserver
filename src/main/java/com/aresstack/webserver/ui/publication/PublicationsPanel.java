@@ -41,7 +41,7 @@ public class PublicationsPanel extends JPanel {
 
         JLabel heading = new JLabel("Published services");
         heading.setFont(heading.getFont().deriveFont(Font.BOLD, heading.getFont().getSize() + 1f));
-        JButton add = new JButton("+ Add service");
+        JButton add = new JButton("+ Publish service");
         add.addActionListener(e -> actions.add());
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -69,12 +69,33 @@ public class PublicationsPanel extends JPanel {
                     () -> actions.details(site)));
         }
         if (configuration.sites().isEmpty()) {
-            JLabel empty = new JLabel("No services published yet — add one to get started.");
-            empty.setBorder(BorderFactory.createEmptyBorder(24, 4, 24, 4));
-            cards.add(empty);
+            cards.add(emptyState());
         }
         cards.add(Box.createVerticalStrut(6));
         cards.revalidate();
         cards.repaint();
+    }
+
+    /** Erster Start: die Anwendung ist sofort bedienbar, kein Wizard. */
+    private JPanel emptyState() {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(70, 0, 40, 0));
+
+        JLabel title = new JLabel("No services published yet");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, title.getFont().getSize() + 3f));
+        title.setAlignmentX(CENTER_ALIGNMENT);
+        JLabel hint = new JLabel("Publish a service to make it available over HTTPS.");
+        hint.setAlignmentX(CENTER_ALIGNMENT);
+        hint.setBorder(BorderFactory.createEmptyBorder(8, 0, 18, 0));
+        JButton publish = new JButton("+ Publish service");
+        publish.setAlignmentX(CENTER_ALIGNMENT);
+        publish.addActionListener(e -> actions.add());
+
+        panel.add(title);
+        panel.add(hint);
+        panel.add(publish);
+        return panel;
     }
 }

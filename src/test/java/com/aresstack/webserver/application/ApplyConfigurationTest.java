@@ -135,7 +135,7 @@ class ApplyConfigurationTest {
                 new DomainName("aresstack.de"),
                 AcmeConfiguration.letsEncrypt("admin@aresstack.de"),
                 Upstream.parse("http://127.0.0.1:8080"),
-                List.of());
+                List.of(Site.of("aresstack.de"), Site.of("aresstack.de")));
 
         assertThrows(IllegalArgumentException.class, () -> useCase.apply(invalid));
         assertEquals(List.of(), writer.events);

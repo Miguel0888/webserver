@@ -44,7 +44,7 @@ class SettingsDialog extends JDialog {
         c.insets = new Insets(4, 12, 4, 12);
         c.anchor = GridBagConstraints.WEST;
         int row = 0;
-        Forms.addRow(form, c, row++, "Let's Encrypt account email", emailField);
+        Forms.addRow(form, c, row++, "Let's Encrypt email (optional)", emailField);
         Forms.addRow(form, c, row++, "Certificate management", new JLabel("Automatic"));
         c.gridx = 1;
         c.gridy = row++;

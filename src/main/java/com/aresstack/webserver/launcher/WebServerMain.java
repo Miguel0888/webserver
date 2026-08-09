@@ -10,7 +10,6 @@ import com.aresstack.webserver.infrastructure.caddy.CaddyProcessManager;
 import com.aresstack.webserver.infrastructure.caddy.RuntimeDirectories;
 import com.aresstack.webserver.infrastructure.configuration.JsonConfigurationRepository;
 import com.aresstack.webserver.ui.FriendlyErrors;
-import com.aresstack.webserver.ui.SetupDialog;
 import com.aresstack.webserver.ui.WebServerFrame;
 import com.aresstack.webserver.ui.UserLog;
 import com.aresstack.webserver.ui.WebServerController;
@@ -75,25 +74,17 @@ public final class WebServerMain {
             System.exit(1);
         }
 
-        JsonConfigurationRepository repository =
-                new JsonConfigurationRepository(directories.configFile());
-        if (!Files.exists(directories.configFile())) {
-            // Erster Start: Einrichtung statt Fehlermeldung.
-            WebServerConfiguration initial = SetupDialog.showSetup();
-            if (initial == null) {
-                System.exit(0);
-            }
-            repository.save(initial);
-        }
-
+        // Kein First-Run-Wizard: das Hauptfenster ist immer das erste Fenster.
+        // Eine fehlende webserver.json bedeutet nur "0 veröffentlichte Services".
         UserLog log = new UserLog();
         WebServerController controller = new WebServerController(directories, log);
         WebServerFrame window = new WebServerFrame(controller, log);
         window.setVisible(true);
 
-        // Server automatisch starten (abschaltbar in den Einstellungen);
-        // Fehler landen verständlich im Dialog.
-        if (com.aresstack.webserver.ui.AppPreferences.autostartServer()) {
+        // Server automatisch starten, sobald es etwas zu servieren gibt
+        // (abschaltbar in den Einstellungen); Fehler landen verständlich im Dialog.
+        if (com.aresstack.webserver.ui.AppPreferences.autostartServer()
+                && !controller.configuration().sites().isEmpty()) {
             new Thread(() -> {
                 try {
                     controller.start();

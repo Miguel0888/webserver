@@ -4,7 +4,8 @@ import java.util.Objects;
 
 /**
  * ACME-Einstellungen; der CA-Endpunkt wird explizit gesetzt statt sich auf
- * Caddy-Defaults zu verlassen.
+ * Caddy-Defaults zu verlassen. Die E-Mail ist optional — Caddy empfiehlt sie,
+ * benötigt sie aber nicht zwingend.
  */
 public record AcmeConfiguration(String email, String ca) {
 
@@ -12,9 +13,9 @@ public record AcmeConfiguration(String email, String ca) {
     public static final String LETS_ENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory";
 
     public AcmeConfiguration {
-        Objects.requireNonNull(email, "email");
+        email = email == null ? "" : email.trim();
         Objects.requireNonNull(ca, "ca");
-        if (email.isBlank() || !email.contains("@")) {
+        if (!email.isBlank() && !email.contains("@")) {
             throw new IllegalArgumentException("Invalid ACME email: " + email);
         }
         if (!ca.startsWith("https://")) {
@@ -24,5 +25,9 @@ public record AcmeConfiguration(String email, String ca) {
 
     public static AcmeConfiguration letsEncrypt(String email) {
         return new AcmeConfiguration(email, LETS_ENCRYPT_PRODUCTION);
+    }
+
+    public static AcmeConfiguration withoutEmail() {
+        return new AcmeConfiguration("", LETS_ENCRYPT_PRODUCTION);
     }
 }

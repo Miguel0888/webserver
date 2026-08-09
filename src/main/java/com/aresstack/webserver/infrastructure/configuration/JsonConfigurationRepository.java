@@ -74,17 +74,19 @@ public class JsonConfigurationRepository implements ConfigurationRepository {
 
     static WebServerConfiguration toDomain(FileModel model) {
         require(model.domain() != null, "'domain' is required");
-        require(model.acme() != null && model.acme().email() != null, "'acme.email' is required");
-        require(model.sites() != null && !model.sites().isEmpty(), "'sites' must contain at least one entry");
 
         Upstream defaultUpstream = model.defaultUpstream() != null
                 ? Upstream.parse(model.defaultUpstream())
                 : Upstream.parse("http://127.0.0.1:8080");
-        AcmeConfiguration acme = model.acme().ca() != null
-                ? new AcmeConfiguration(model.acme().email(), model.acme().ca())
-                : AcmeConfiguration.letsEncrypt(model.acme().email());
+        // acme und sites sind optional: keine Mail und 0 Services sind valide.
+        String email = model.acme() != null && model.acme().email() != null ? model.acme().email() : "";
+        String ca = model.acme() != null && model.acme().ca() != null
+                ? model.acme().ca()
+                : AcmeConfiguration.LETS_ENCRYPT_PRODUCTION;
+        AcmeConfiguration acme = new AcmeConfiguration(email, ca);
+        List<SiteModel> siteModels = model.sites() == null ? List.of() : model.sites();
 
-        List<Site> sites = model.sites().stream().map(site -> {
+        List<Site> sites = siteModels.stream().map(site -> {
             require(site.host() != null, "each site requires a 'host'");
             Optional<Upstream> upstream = Optional.ofNullable(site.upstream()).map(Upstream::parse);
             List<Route> routes = site.routes() == null ? List.of() : site.routes().stream()
@@ -118,7 +120,9 @@ public class JsonConfigurationRepository implements ConfigurationRepository {
                 configuration.defaultUpstream().toString(),
                 configuration.httpPort() == 80 ? null : configuration.httpPort(),
                 configuration.httpsPort() == 443 ? null : configuration.httpsPort(),
-                new AcmeModel(configuration.acme().email(), configuration.acme().ca()),
+                new AcmeModel(
+                        configuration.acme().email().isBlank() ? null : configuration.acme().email(),
+                        configuration.acme().ca()),
                 sites);
     }
 

@@ -28,8 +28,9 @@ class WebServerConfigurationTest {
     }
 
     @Test
-    void rejectsEmptySites() {
-        assertThrows(IllegalArgumentException.class, () -> config(List.of()).validate());
+    void emptyConfigurationIsValid() {
+        // 0 veröffentlichte Services ist ein legitimer Zustand.
+        assertDoesNotThrow(() -> config(List.of()).validate());
     }
 
     @Test
@@ -41,8 +42,9 @@ class WebServerConfigurationTest {
     }
 
     @Test
-    void rejectsForeignHosts() {
-        assertThrows(IllegalArgumentException.class, () -> config(List.of(
+    void anyFullyQualifiedDomainMayBePublished() {
+        // Das domain-Feld ist rein informativ und beschränkt Sites nicht.
+        assertDoesNotThrow(() -> config(List.of(
                 Site.of("example.com")
         )).validate());
     }

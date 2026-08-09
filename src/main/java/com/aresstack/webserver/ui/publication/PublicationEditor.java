@@ -47,9 +47,13 @@ public class PublicationEditor extends JDialog {
 
     private Site result;
 
-    private PublicationEditor(Window owner, Site existing, Upstream defaultUpstream) {
-        super(owner, existing == null ? "Add service" : "Edit service", ModalityType.APPLICATION_MODAL);
+    private PublicationEditor(Window owner, Site existing, Upstream defaultUpstream,
+                              String addressSuggestion) {
+        super(owner, existing == null ? "Publish service" : "Edit service", ModalityType.APPLICATION_MODAL);
 
+        if (existing == null && addressSuggestion != null) {
+            addressField.setText(addressSuggestion);
+        }
         if (existing != null) {
             addressField.setText(existing.host().value());
             Upstream target = existing.effectiveUpstream(defaultUpstream);
@@ -113,7 +117,7 @@ public class PublicationEditor extends JDialog {
 
         JButton cancel = new JButton("Cancel");
         cancel.addActionListener(e -> dispose());
-        JButton save = new JButton(existing == null ? "Add service" : "Save");
+        JButton save = new JButton(existing == null ? "Publish" : "Save");
         save.addActionListener(e -> save());
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
         buttons.add(cancel);
@@ -189,13 +193,14 @@ public class PublicationEditor extends JDialog {
                     Optional.of(upstream), List.copyOf(routes), httpsBox.isSelected());
             dispose();
         } catch (RuntimeException e) {
-            FriendlyErrors.show(this, "Add service", e);
+            FriendlyErrors.show(this, "Publish service", e);
         }
     }
 
     /** Zeigt den Editor modal; {@code null} bei Abbruch. */
-    public static Site open(Window owner, Site existing, Upstream defaultUpstream) {
-        PublicationEditor editor = new PublicationEditor(owner, existing, defaultUpstream);
+    public static Site open(Window owner, Site existing, Upstream defaultUpstream,
+                            String addressSuggestion) {
+        PublicationEditor editor = new PublicationEditor(owner, existing, defaultUpstream, addressSuggestion);
         editor.setVisible(true);
         return editor.result;
     }

@@ -55,7 +55,9 @@ public class CaddyfileRenderer {
 
     private void renderGlobalOptions(StringBuilder out, WebServerConfiguration configuration) {
         out.append("{\n");
-        out.append("    email ").append(configuration.acme().email()).append('\n');
+        if (!configuration.acme().email().isBlank()) {
+            out.append("    email ").append(configuration.acme().email()).append('\n');
+        }
         out.append("    acme_ca ").append(configuration.acme().ca()).append('\n');
         out.append("    admin ").append(options.adminListen()).append('\n');
         if (options.httpOnly()) {

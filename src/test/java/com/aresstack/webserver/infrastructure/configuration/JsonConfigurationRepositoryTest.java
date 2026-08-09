@@ -106,10 +106,22 @@ class JsonConfigurationRepositoryTest {
     }
 
     @Test
-    void rejectsMissingRequiredFields(@TempDir Path dir) throws Exception {
+    void rejectsMissingDomain(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("webserver.json");
+        Files.writeString(file, "{ }");
+        assertThrows(IllegalArgumentException.class, () -> new JsonConfigurationRepository(file).load());
+    }
+
+    @Test
+    void domainOnlyFileMeansNoPublishedServicesYet(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("webserver.json");
         Files.writeString(file, "{ \"domain\": \"aresstack.de\" }");
-        assertThrows(IllegalArgumentException.class, () -> new JsonConfigurationRepository(file).load());
+
+        WebServerConfiguration configuration = new JsonConfigurationRepository(file).load();
+        configuration.validate();
+
+        assertEquals(0, configuration.sites().size());
+        assertEquals("", configuration.acme().email());
     }
 
     @Test

@@ -52,9 +52,23 @@ public class WebServerController {
 
     public synchronized WebServerConfiguration configuration() {
         if (current == null) {
-            current = repository.load();
+            current = java.nio.file.Files.exists(directories.configFile())
+                    ? repository.load()
+                    : defaultConfiguration();
         }
         return current;
+    }
+
+    /**
+     * Fehlende webserver.json ist kein Setup-Sonderfall, sondern bedeutet
+     * "noch keine veröffentlichten Services".
+     */
+    private static WebServerConfiguration defaultConfiguration() {
+        return new WebServerConfiguration(
+                new DomainName("aresstack.de"),
+                AcmeConfiguration.withoutEmail(),
+                com.aresstack.webserver.domain.Upstream.parse("http://127.0.0.1:8080"),
+                List.of());
     }
 
     public boolean isRunning() {
@@ -62,6 +76,9 @@ public class WebServerController {
     }
 
     public synchronized void start() {
+        if (!java.nio.file.Files.exists(directories.configFile())) {
+            repository.save(configuration());
+        }
         current = startWebServer.start();
         log.info("Server started");
         notifyChanged();
@@ -81,10 +98,17 @@ public class WebServerController {
     }
 
     public synchronized void addSite(Site site) {
-        List<Site> sites = new ArrayList<>(configuration().sites());
+        WebServerConfiguration config = configuration();
+        List<Site> sites = new ArrayList<>(config.sites());
+        boolean firstService = sites.isEmpty();
         sites.add(site);
-        applyNew(withSites(sites));
-        log.info("Added " + site.host());
+        // Beim allerersten Service übernimmt das informative Domain-Feld
+        // dessen Host — es gibt keinen separaten "Primary Domain"-Begriff.
+        applyNew(new WebServerConfiguration(
+                firstService ? site.host() : config.domain(),
+                config.acme(), config.defaultUpstream(), sites,
+                config.httpPort(), config.httpsPort()));
+        log.info("Published " + site.host());
         if (site.httpsEnabled()) {
             log.info("Requested HTTPS certificate for " + site.host());
         }

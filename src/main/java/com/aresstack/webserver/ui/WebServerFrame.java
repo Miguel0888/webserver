@@ -68,17 +68,26 @@ public class WebServerFrame extends JFrame {
         publications = new PublicationsPanel(new PublicationsPanel.Actions() {
             @Override
             public void add() {
+                WebServerConfiguration config = controller.configuration();
+                // Beim allerersten Service wird die Standarddomain vorgeschlagen.
+                String suggestion = config.sites().isEmpty() ? config.domain().value() : null;
                 Site site = PublicationEditor.open(WebServerFrame.this, null,
-                        controller.configuration().defaultUpstream());
+                        config.defaultUpstream(), suggestion);
                 if (site != null) {
-                    runAsync("Add service", () -> controller.addSite(site));
+                    // Publish → speichern → Server starten → Zertifikat beschaffen.
+                    runAsync("Publish service", () -> {
+                        controller.addSite(site);
+                        if (!controller.isRunning()) {
+                            controller.start();
+                        }
+                    });
                 }
             }
 
             @Override
             public void edit(Site site) {
                 Site updated = PublicationEditor.open(WebServerFrame.this, site,
-                        controller.configuration().defaultUpstream());
+                        controller.configuration().defaultUpstream(), null);
                 if (updated != null) {
                     runAsync("Edit service", () -> controller.updateSite(site.host(), updated));
                 }
@@ -127,6 +136,8 @@ public class WebServerFrame extends JFrame {
         startStop.setText(running ? "Stop" : "Start");
 
         WebServerConfiguration config = controller.configuration();
+        // Ohne veröffentlichte Services gibt es nichts zu starten.
+        startStop.setEnabled(running || !config.sites().isEmpty());
         publications.update(config, statuses);
         statusBar.update(running, config.httpPort(), config.httpsPort(), config.sites().size());
     }
