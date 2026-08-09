@@ -50,7 +50,12 @@ public final class WebServerMain {
                 return Path.of(arg).toAbsolutePath().normalize();
             }
         }
-        return Path.of(System.getProperty("webserver.root", ".")).toAbsolutePath().normalize();
+        String property = System.getProperty("webserver.root", ".");
+        if (property.isBlank() || property.contains("APP_HOME")) {
+            // Nicht ersetzter Skript-Platzhalter — auf Arbeitsverzeichnis zurückfallen.
+            property = ".";
+        }
+        return Path.of(property).toAbsolutePath().normalize();
     }
 
     // ------------------------------------------------------------------

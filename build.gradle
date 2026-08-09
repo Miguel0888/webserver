@@ -18,12 +18,27 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
+// Erzwingt Java 21 auch für Ausführungs-Tasks, die die IDE ad-hoc anlegt
+// (z.B. IntelliJs "WebServerMain.main()"), statt des Projekt-JDKs.
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 application {
     applicationName = 'webserver'
     mainClass = 'com.aresstack.webserver.launcher.WebServerMain'
     // Platzhalter wird in den Startskripten durch APP_HOME ersetzt, damit die
     // Anwendung ihr Wurzelverzeichnis unabhängig vom Aufrufort findet.
     applicationDefaultJvmArgs = ['-Dwebserver.root=WEBSERVER_APP_HOME']
+}
+
+// Beim Entwicklungsstart über "gradlew run" (und IDE-Ad-hoc-Tasks) ist das
+// Projektverzeichnis das Wurzelverzeichnis — der APP_HOME-Platzhalter gilt
+// nur für die generierten Startskripte.
+tasks.named('run') {
+    jvmArgs = ["-Dwebserver.root=${projectDir.absolutePath}"]
 }
 
 tasks.named('startScripts') {
