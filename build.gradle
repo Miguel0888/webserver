@@ -64,6 +64,9 @@ def caddyBinaryName = System.getProperty('os.name').toLowerCase().contains('win'
 
 test {
     useJUnitPlatform()
+    // Die Caddy-in-the-loop-Integrationstests brauchen das echte Binary —
+    // auch in CI, damit sie nicht still übersprungen werden.
+    dependsOn 'downloadCaddy'
     // Integrationstests routen über den Host-Header; HttpClient gibt ihn nur
     // mit diesem Property frei.
     systemProperty 'jdk.httpclient.allowRestrictedHeaders', 'host'

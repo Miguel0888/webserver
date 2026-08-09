@@ -136,7 +136,9 @@ class CaddyRoutingIntegrationTest {
         if (runtime != null && runtime.isRunning()) {
             runtime.stop();
         }
-        for (HttpServer server : List.of(backendDefault, backendApi, backendA, backendB)) {
+        // Arrays.asList statt List.of: bei übersprungenem Setup sind die
+        // Backends null.
+        for (HttpServer server : java.util.Arrays.asList(backendDefault, backendApi, backendA, backendB)) {
             if (server != null) {
                 server.stop(0);
             }
