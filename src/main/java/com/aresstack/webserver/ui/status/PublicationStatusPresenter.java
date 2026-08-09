@@ -92,12 +92,27 @@ public class PublicationStatusPresenter {
                     action, null, subs, null);
         }
 
-        // 3. HTTPS abgeschaltet: ohne Zertifikatspflicht ist der Dienst jetzt live.
+        // 3. HTTPS abgeschaltet: ohne ACME gibt es keinen externen Nachweis —
+        // Live nur bei positiv verifizierter öffentlicher Erreichbarkeit,
+        // sonst ehrlich "Verifying" statt vorschnell "Live".
         if (!site.httpsEnabled()) {
+            boolean publicOk = publicIp != null
+                    && tcpReachable(publicIp, configuration.httpPort());
+            if (publicOk) {
+                List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub,
+                        new SubStatus("Public endpoint", SubState.OK, "Reachable from the internet"),
+                        new SubStatus("HTTPS", SubState.OFF, "Disabled for this service"));
+                return new PublicationStatus(Overall.LIVE, "Served over HTTP · HTTPS disabled",
+                        null, null, subs, null);
+            }
             List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub,
+                    new SubStatus("Public endpoint", SubState.PENDING,
+                            "Could not be verified from inside this network"),
                     new SubStatus("HTTPS", SubState.OFF, "Disabled for this service"));
-            return new PublicationStatus(Overall.LIVE, "Served over HTTP · HTTPS disabled",
-                    null, null, subs, null);
+            return new PublicationStatus(Overall.SETTING_UP, "Verifying public access",
+                    "Many routers cannot be reached on their own public address from inside.\n"
+                            + "Check from another network (e.g. a phone on mobile data):\n"
+                            + "http://" + host, null, subs, null);
         }
 
         // 4. HTTPS-Port
@@ -124,7 +139,13 @@ public class PublicationStatusPresenter {
             }
             boolean expiringSoon = certificate.expires()
                     .before(new Date(System.currentTimeMillis() + EXPIRY_WARNING.toMillis()));
-            List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub,
+            // Das gültige Zertifikat ist der End-to-End-Nachweis: Let's Encrypt
+            // konnte diesen Server nur aus dem Internet validieren. Der direkte
+            // Test der öffentlichen Adresse ist Bonus (NAT-Hairpinning nötig).
+            SubStatus publicSub = publicIp != null && tcpReachable(publicIp, configuration.httpsPort())
+                    ? new SubStatus("Public endpoint", SubState.OK, "Reachable from the internet")
+                    : new SubStatus("Public endpoint", SubState.OK, "Verified by certificate issuance");
+            List<SubStatus> subs = List.of(domainSub, backendSub, webserverSub, publicSub,
                     new SubStatus("HTTPS", SubState.OK, "Secured"));
             return new PublicationStatus(Overall.LIVE,
                     expiringSoon
