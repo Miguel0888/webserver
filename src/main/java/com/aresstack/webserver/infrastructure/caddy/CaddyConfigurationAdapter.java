@@ -18,11 +18,16 @@ import java.util.concurrent.TimeUnit;
  */
 public class CaddyConfigurationAdapter implements CaddyConfigurationWriter {
 
-    private final CaddyfileRenderer renderer = new CaddyfileRenderer();
+    private final CaddyfileRenderer renderer;
     private final RuntimeDirectories directories;
 
     public CaddyConfigurationAdapter(RuntimeDirectories directories) {
+        this(directories, new CaddyfileRenderer());
+    }
+
+    public CaddyConfigurationAdapter(RuntimeDirectories directories, CaddyfileRenderer renderer) {
         this.directories = directories;
+        this.renderer = renderer;
     }
 
     @Override

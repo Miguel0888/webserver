@@ -24,7 +24,11 @@ public final class WebServerMain {
     }
 
     public static void main(String[] args) throws Exception {
-        Path root = args.length > 0 ? Path.of(args[0]) : Path.of(".").toAbsolutePath().normalize();
+        // Priorität: explizites Argument, dann das vom Startskript gesetzte
+        // APP_HOME (-Dwebserver.root), sonst das Arbeitsverzeichnis.
+        Path root = args.length > 0
+                ? Path.of(args[0]).toAbsolutePath().normalize()
+                : Path.of(System.getProperty("webserver.root", ".")).toAbsolutePath().normalize();
         RuntimeDirectories directories = new RuntimeDirectories(root);
         directories.ensureExist();
 

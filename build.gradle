@@ -15,7 +15,18 @@ java {
 }
 
 application {
+    applicationName = 'webserver'
     mainClass = 'com.aresstack.webserver.launcher.WebServerMain'
+    // Platzhalter wird in den Startskripten durch APP_HOME ersetzt, damit die
+    // Anwendung ihr Wurzelverzeichnis unabhängig vom Aufrufort findet.
+    applicationDefaultJvmArgs = ['-Dwebserver.root=WEBSERVER_APP_HOME']
+}
+
+tasks.named('startScripts') {
+    doLast {
+        unixScript.text = unixScript.text.replace('WEBSERVER_APP_HOME', '\'"$APP_HOME"\'')
+        windowsScript.text = windowsScript.text.replace('WEBSERVER_APP_HOME', '%APP_HOME%')
+    }
 }
 
 repositories {
@@ -30,8 +41,14 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+def caddyBinaryName = System.getProperty('os.name').toLowerCase().contains('win') ? 'caddy.exe' : 'caddy'
+
 test {
     useJUnitPlatform()
+    // Integrationstests routen über den Host-Header; HttpClient gibt ihn nur
+    // mit diesem Property frei.
+    systemProperty 'jdk.httpclient.allowRestrictedHeaders', 'host'
+    systemProperty 'caddy.binary', new File(projectDir, "runtime/caddy/bin/${caddyBinaryName}").absolutePath
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +79,35 @@ def sha512(File file) {
     digest.digest().collect { String.format('%02x', it) }.join()
 }
 
+// ---------------------------------------------------------------------------
+// Release (Slice 10): aresstack-webserver mit Caddy-Binary und Lizenz.
+// Persistent bei Updates: config/, data/, logs/ — austauschbar: bin/, lib/,
+// generated/. Die echte webserver.json gehört nie ins Release, nur die
+// Beispieldatei; data/, generated/ und logs/ legt die Anwendung beim ersten
+// Start selbst an.
+// ---------------------------------------------------------------------------
+
+distributions {
+    main {
+        distributionBaseName = 'aresstack-webserver'
+        contents {
+            from('runtime/caddy/bin') {
+                into 'bin'
+            }
+            from('runtime/caddy/LICENSE') {
+                into 'licenses/caddy'
+            }
+            from('config/webserver.example.json') {
+                into 'config'
+            }
+        }
+    }
+}
+
+['distZip', 'distTar', 'installDist'].each { taskName ->
+    tasks.named(taskName) { dependsOn 'downloadCaddy' }
+}
+
 tasks.register('downloadCaddy') {
     group = 'caddy'
     description = "Downloads and verifies Caddy ${caddyVersion} into runtime/caddy/bin"
@@ -75,6 +121,7 @@ tasks.register('downloadCaddy') {
     def binaryName = isWindows ? 'caddy.exe' : 'caddy'
 
     outputs.file(new File(binDir, binaryName))
+    outputs.file(new File(binDir.parentFile, 'LICENSE'))
 
     doLast {
         def archive = new File(downloadDir, archiveName)
@@ -100,16 +147,16 @@ tasks.register('downloadCaddy') {
         logger.lifecycle("Checksum verified: ${actual}")
 
         binDir.mkdirs()
-        if (isWindows) {
-            copy {
-                from(zipTree(archive)) { include binaryName }
-                into binDir
-            }
-        } else {
-            copy {
-                from(tarTree(resources.gzip(archive))) { include binaryName }
-                into binDir
-            }
+        def tree = isWindows ? zipTree(archive) : tarTree(resources.gzip(archive))
+        copy {
+            from(tree) { include binaryName }
+            into binDir
+        }
+        copy {
+            from(tree) { include 'LICENSE' }
+            into binDir.parentFile
+        }
+        if (!isWindows) {
             new File(binDir, binaryName).setExecutable(true)
         }
         logger.lifecycle("Caddy binary ready: ${new File(binDir, binaryName)}")

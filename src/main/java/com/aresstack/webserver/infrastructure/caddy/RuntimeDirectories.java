@@ -29,7 +29,9 @@ public record RuntimeDirectories(Path root) {
 
     public Path caddyBinary() {
         String binary = System.getProperty("os.name").toLowerCase().contains("win") ? "caddy.exe" : "caddy";
-        return root.resolve("runtime").resolve("caddy").resolve("bin").resolve(binary);
+        // Entwicklungslayout (gradlew downloadCaddy) vor Release-Layout (bin/).
+        Path development = root.resolve("runtime").resolve("caddy").resolve("bin").resolve(binary);
+        return Files.exists(development) ? development : root.resolve("bin").resolve(binary);
     }
 
     public void ensureExist() {
