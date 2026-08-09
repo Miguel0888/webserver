@@ -32,7 +32,7 @@ public class JsonConfigurationRepository implements ConfigurationRepository {
     record AcmeModel(String email, String ca) {
     }
 
-    record SiteModel(String host, String upstream, List<RouteModel> routes) {
+    record SiteModel(String host, String upstream, Boolean https, List<RouteModel> routes) {
     }
 
     record RouteModel(String path, String upstream) {
@@ -93,7 +93,8 @@ public class JsonConfigurationRepository implements ConfigurationRepository {
                         return new Route(route.path(), Upstream.parse(route.upstream()));
                     })
                     .toList();
-            return new Site(new DomainName(site.host()), upstream, routes);
+            boolean httpsEnabled = site.https() == null || site.https();
+            return new Site(new DomainName(site.host()), upstream, routes, httpsEnabled);
         }).toList();
 
         return new WebServerConfiguration(new DomainName(model.domain()), acme, defaultUpstream, sites);
@@ -103,6 +104,7 @@ public class JsonConfigurationRepository implements ConfigurationRepository {
         List<SiteModel> sites = configuration.sites().stream().map(site -> new SiteModel(
                 site.host().value(),
                 site.upstream().map(Upstream::toString).orElse(null),
+                site.httpsEnabled() ? null : Boolean.FALSE,
                 site.routes().isEmpty() ? null : site.routes().stream()
                         .map(route -> new RouteModel(route.pathMatcher(), route.upstream().toString()))
                         .toList()

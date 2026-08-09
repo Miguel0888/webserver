@@ -67,8 +67,11 @@ public class CaddyfileRenderer {
 
     private void renderSite(StringBuilder out, Site site, Upstream defaultUpstream) {
         Upstream fallback = site.effectiveUpstream(defaultUpstream);
-        // http://-Scheme deaktiviert Automatic HTTPS für die Site (Testmodus).
-        String address = options.httpOnly() ? "http://" + site.host() : site.host().value();
+        // http://-Scheme deaktiviert Automatic HTTPS für die Site — im
+        // Testmodus generell, in Produktion für Sites mit abgeschaltetem HTTPS.
+        String address = options.httpOnly() || !site.httpsEnabled()
+                ? "http://" + site.host()
+                : site.host().value();
         out.append(address).append(" {\n");
         if (site.routes().isEmpty()) {
             out.append("    reverse_proxy ").append(fallback.toCaddyAddress()).append('\n');

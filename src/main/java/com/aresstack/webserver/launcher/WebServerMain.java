@@ -9,14 +9,22 @@ import com.aresstack.webserver.infrastructure.caddy.CaddyConfigurationAdapter;
 import com.aresstack.webserver.infrastructure.caddy.CaddyProcessManager;
 import com.aresstack.webserver.infrastructure.caddy.RuntimeDirectories;
 import com.aresstack.webserver.infrastructure.configuration.JsonConfigurationRepository;
+import com.aresstack.webserver.ui.FriendlyErrors;
+import com.aresstack.webserver.ui.MainWindow;
+import com.aresstack.webserver.ui.SetupDialog;
+import com.aresstack.webserver.ui.UserLog;
+import com.aresstack.webserver.ui.WebServerController;
 
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import java.awt.GraphicsEnvironment;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 /**
- * Einstiegspunkt: verdrahtet die Adapter, startet Caddy mit der persistierten
- * Konfiguration und wendet Änderungen an webserver.json per SIGTERM-freiem
- * Reload an, solange der Prozess läuft.
+ * Einstiegspunkt. Standard ist die grafische Anwendung; {@code --headless}
+ * startet den bisherigen Servermodus mit Konfigurations-Watcher.
  */
 public final class WebServerMain {
 
@@ -24,11 +32,81 @@ public final class WebServerMain {
     }
 
     public static void main(String[] args) throws Exception {
+        Path root = resolveRoot(args);
+        boolean headless = Arrays.asList(args).contains("--headless")
+                || GraphicsEnvironment.isHeadless();
+        if (headless) {
+            runHeadless(root);
+        } else {
+            SwingUtilities.invokeLater(() -> launchGui(root));
+        }
+    }
+
+    private static Path resolveRoot(String[] args) {
         // Priorität: explizites Argument, dann das vom Startskript gesetzte
         // APP_HOME (-Dwebserver.root), sonst das Arbeitsverzeichnis.
-        Path root = args.length > 0
-                ? Path.of(args[0]).toAbsolutePath().normalize()
-                : Path.of(System.getProperty("webserver.root", ".")).toAbsolutePath().normalize();
+        for (String arg : args) {
+            if (!arg.startsWith("--")) {
+                return Path.of(arg).toAbsolutePath().normalize();
+            }
+        }
+        return Path.of(System.getProperty("webserver.root", ".")).toAbsolutePath().normalize();
+    }
+
+    // ------------------------------------------------------------------
+    // GUI
+    // ------------------------------------------------------------------
+
+    private static void launchGui(Path root) {
+        RuntimeDirectories directories = new RuntimeDirectories(root);
+        directories.ensureExist();
+
+        if (!Files.exists(directories.caddyBinary())) {
+            JOptionPane.showMessageDialog(null,
+                    "The webserver engine is missing:\n" + directories.caddyBinary()
+                            + "\n\nReinstall the application or run: gradlew downloadCaddy",
+                    "AresStack Webserver", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
+
+        JsonConfigurationRepository repository =
+                new JsonConfigurationRepository(directories.configFile());
+        if (!Files.exists(directories.configFile())) {
+            // Erster Start: Einrichtung statt Fehlermeldung.
+            WebServerConfiguration initial = SetupDialog.showSetup();
+            if (initial == null) {
+                System.exit(0);
+            }
+            repository.save(initial);
+        }
+
+        UserLog log = new UserLog();
+        WebServerController controller = new WebServerController(directories, log);
+        MainWindow window = new MainWindow(controller, log);
+        window.setVisible(true);
+
+        // Server automatisch starten; Fehler landen verständlich im Dialog.
+        new Thread(() -> {
+            try {
+                controller.start();
+            } catch (RuntimeException e) {
+                SwingUtilities.invokeLater(() ->
+                        FriendlyErrors.show(window, "Start Server", e));
+            }
+        }, "server-autostart").start();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (controller.isRunning()) {
+                controller.stop();
+            }
+        }, "caddy-shutdown"));
+    }
+
+    // ------------------------------------------------------------------
+    // Headless (Serverbetrieb)
+    // ------------------------------------------------------------------
+
+    private static void runHeadless(Path root) throws Exception {
         RuntimeDirectories directories = new RuntimeDirectories(root);
         directories.ensureExist();
 

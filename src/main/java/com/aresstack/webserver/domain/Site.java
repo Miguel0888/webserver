@@ -6,15 +6,20 @@ import java.util.Optional;
 
 /**
  * Ein veröffentlichter Host. Ohne eigenen Upstream greift der
- * Default-Upstream der Gesamtkonfiguration.
+ * Default-Upstream der Gesamtkonfiguration. HTTPS ist standardmäßig aktiv;
+ * ohne HTTPS wird die Site nur über HTTP :80 ausgeliefert.
  */
-public record Site(DomainName host, Optional<Upstream> upstream, List<Route> routes) {
+public record Site(DomainName host, Optional<Upstream> upstream, List<Route> routes, boolean httpsEnabled) {
 
     public Site {
         Objects.requireNonNull(host, "host");
         Objects.requireNonNull(upstream, "upstream");
         Objects.requireNonNull(routes, "routes");
         routes = List.copyOf(routes);
+    }
+
+    public Site(DomainName host, Optional<Upstream> upstream, List<Route> routes) {
+        this(host, upstream, routes, true);
     }
 
     public static Site of(String host) {
