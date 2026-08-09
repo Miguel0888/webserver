@@ -20,6 +20,11 @@ public final class FriendlyErrors {
 
     public static String describe(Throwable error) {
         String text = allMessages(error).toLowerCase(Locale.ROOT);
+        if (text.contains("invalid acme email")) {
+            return "Please enter a valid email address.\n\n"
+                    + "Let's Encrypt requires an email address to issue certificates\n"
+                    + "(it is used for expiry warnings, not for marketing).";
+        }
         if (text.contains("address already in use") || text.contains("bind:")
                 || text.contains("only one usage of each socket address")) {
             return "Port 80 or 443 is already being used by another application.\n"

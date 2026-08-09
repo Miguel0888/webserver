@@ -70,6 +70,16 @@ public class SetupDialog extends JDialog {
     }
 
     private void save() {
+        String email = emailField.getText().trim();
+        if (email.isBlank() || !email.contains("@")) {
+            javax.swing.JOptionPane.showMessageDialog(this,
+                    "Please enter your email address.\n\n"
+                            + "Let's Encrypt requires it to issue HTTPS certificates\n"
+                            + "(it is used for expiry warnings, not for marketing).",
+                    "Email required", javax.swing.JOptionPane.WARNING_MESSAGE);
+            emailField.requestFocusInWindow();
+            return;
+        }
         try {
             DomainName domain = new DomainName(domainField.getText());
             Upstream defaultUpstream = Upstream.parse(
@@ -77,7 +87,7 @@ public class SetupDialog extends JDialog {
             Site primarySite = new Site(domain, Optional.empty(), List.of(), httpsEnabled.isSelected());
             result = new WebServerConfiguration(
                     domain,
-                    AcmeConfiguration.letsEncrypt(emailField.getText().trim()),
+                    AcmeConfiguration.letsEncrypt(email),
                     defaultUpstream,
                     List.of(primarySite));
             result.validate();
