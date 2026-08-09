@@ -44,12 +44,8 @@ class SettingsDialog extends JDialog {
         c.insets = new Insets(4, 12, 4, 12);
         c.anchor = GridBagConstraints.WEST;
         int row = 0;
-        RouteDialog.addRow(form, c, row++, "Primary domain",
-                new JLabel(controller.configuration().domain().value()));
-        RouteDialog.addRow(form, c, row++, "Default destination",
-                new JLabel(controller.configuration().defaultUpstream().toString()));
-        RouteDialog.addRow(form, c, row++, "Let's Encrypt account email", emailField);
-        RouteDialog.addRow(form, c, row++, "Certificate management", new JLabel("Automatic"));
+        Forms.addRow(form, c, row++, "Let's Encrypt account email", emailField);
+        Forms.addRow(form, c, row++, "Certificate management", new JLabel("Automatic"));
         c.gridx = 1;
         c.gridy = row++;
         form.add(autostartServer, c);
@@ -62,8 +58,8 @@ class SettingsDialog extends JDialog {
         GridBagConstraints a = new GridBagConstraints();
         a.insets = new Insets(4, 12, 4, 12);
         a.anchor = GridBagConstraints.WEST;
-        RouteDialog.addRow(advanced, a, 0, "HTTP port", httpPortField);
-        RouteDialog.addRow(advanced, a, 1, "HTTPS port", httpsPortField);
+        Forms.addRow(advanced, a, 0, "HTTP port", httpPortField);
+        Forms.addRow(advanced, a, 1, "HTTPS port", httpsPortField);
         a.gridx = 0;
         a.gridy = 2;
         a.gridwidth = 2;

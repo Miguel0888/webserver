@@ -48,10 +48,10 @@ public class SetupDialog extends JDialog {
         c.insets = new Insets(4, 12, 4, 12);
         c.anchor = GridBagConstraints.WEST;
         int row = 0;
-        RouteDialog.addRow(form, c, row++, "Primary domain", domainField);
-        RouteDialog.addRow(form, c, row++, "Let's Encrypt email", emailField);
-        RouteDialog.addRow(form, c, row++, "Default destination host", hostField);
-        RouteDialog.addRow(form, c, row++, "Port", portField);
+        Forms.addRow(form, c, row++, "Public address", domainField);
+        Forms.addRow(form, c, row++, "Your email", emailField);
+        Forms.addRow(form, c, row++, "Forward to", hostField);
+        Forms.addRow(form, c, row++, "Port", portField);
         c.gridx = 1;
         c.gridy = row++;
         form.add(httpsEnabled, c);

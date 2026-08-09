@@ -10,8 +10,8 @@ import com.aresstack.webserver.infrastructure.caddy.CaddyProcessManager;
 import com.aresstack.webserver.infrastructure.caddy.RuntimeDirectories;
 import com.aresstack.webserver.infrastructure.configuration.JsonConfigurationRepository;
 import com.aresstack.webserver.ui.FriendlyErrors;
-import com.aresstack.webserver.ui.MainWindow;
 import com.aresstack.webserver.ui.SetupDialog;
+import com.aresstack.webserver.ui.WebServerFrame;
 import com.aresstack.webserver.ui.UserLog;
 import com.aresstack.webserver.ui.WebServerController;
 
@@ -38,6 +38,7 @@ public final class WebServerMain {
         if (headless) {
             runHeadless(root);
         } else {
+            com.formdev.flatlaf.FlatLightLaf.setup();
             SwingUtilities.invokeLater(() -> launchGui(root));
         }
     }
@@ -87,7 +88,7 @@ public final class WebServerMain {
 
         UserLog log = new UserLog();
         WebServerController controller = new WebServerController(directories, log);
-        MainWindow window = new MainWindow(controller, log);
+        WebServerFrame window = new WebServerFrame(controller, log);
         window.setVisible(true);
 
         // Server automatisch starten (abschaltbar in den Einstellungen);
