@@ -17,7 +17,7 @@ public record PublicationStatus(
         Overall overall,
         String headline,
         String actionText,
-        String copyText,
+        DnsRecord dnsRecord,
         List<SubStatus> subStatuses,
         CertificateStatusChecker.CertificateInfo certificate) {
 
@@ -37,6 +37,14 @@ public record PublicationStatus(
 
     /** Teilzustand wie "Domain — DNS record missing" oder "Backend — reachable". */
     public record SubStatus(String label, SubState state, String detail) {
+    }
+
+    /**
+     * Der beim Provider einzutragende CNAME — genau die Feldwerte, die dessen
+     * Formular erwartet. Subdomains zeigen immer per CNAME auf die
+     * DynDNS-Basisdomain; A-Records werden niemals empfohlen.
+     */
+    public record DnsRecord(String hostname, String target) {
     }
 
     public static PublicationStatus checking() {

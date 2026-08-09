@@ -104,6 +104,11 @@ public class PublicationStatusView extends JDialog {
             }
             rows.add(javax.swing.Box.createVerticalStrut(8));
         }
+        if (status.dnsRecord() != null) {
+            rows.add(line(MUTED, "Type: CNAME    Hostname: " + status.dnsRecord().hostname()
+                    + "    Target: " + status.dnsRecord().target()));
+            rows.add(javax.swing.Box.createVerticalStrut(8));
+        }
 
         for (PublicationStatus.SubStatus sub : status.subStatuses()) {
             Color color = switch (sub.state()) {

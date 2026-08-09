@@ -54,31 +54,44 @@ public class PublicationStatusPresenter {
         SubStatus webserverSub = new SubStatus("Webserver", SubState.OK, "Running");
 
         // 1. DNS: ohne Eintrag kann nichts davon jemals erfolgreich werden —
-        // das ist eine Benutzeraktion, kein "Setting up".
+        // das ist eine Benutzeraktion, kein "Setting up". Subdomains werden
+        // ausschließlich per CNAME auf die DynDNS-Basisdomain geführt.
+        String base = baseDomain(host);
+        boolean isSubdomain = !base.equals(host);
         if (dns.isEmpty()) {
-            String name = firstLabel(host);
-            String base = baseDomain(host);
-            String action = "Create this record at your DNS provider:\n"
-                    + "CNAME    " + name + "    →    " + base
-                    + (publicIp != null ? "\n(or an A record → " + publicIp + ")" : "")
-                    + "\nThe check repeats automatically.";
             List<SubStatus> subs = List.of(
                     new SubStatus("Domain", SubState.WARN, "DNS record missing"),
                     backendSub, webserverSub,
                     new SubStatus("HTTPS", SubState.PENDING, "Waiting for DNS"));
-            return new PublicationStatus(Overall.ACTION_REQUIRED, "DNS record missing",
-                    action, "CNAME " + name + " " + base, subs, null);
+            if (isSubdomain) {
+                return new PublicationStatus(Overall.ACTION_REQUIRED, "DNS record required",
+                        "Create this record at your DNS provider:",
+                        new PublicationStatus.DnsRecord(firstLabel(host), base), subs, null);
+            }
+            return new PublicationStatus(Overall.ACTION_REQUIRED, "DNS record required",
+                    host + " has no DNS entry.\n"
+                            + "This is your base domain — it is kept up to date by Dynamic DNS.\n"
+                            + "Check the DynDNS configuration in your router or in Settings.",
+                    null, subs, null);
         }
         if (publicIp != null && !dns.contains(publicIp)) {
-            String action = host + " points to " + String.join(", ", dns) + "\n"
-                    + "instead of " + publicIp + ".\n"
-                    + "Change the DNS record to: " + publicIp;
             List<SubStatus> subs = List.of(
                     new SubStatus("Domain", SubState.WARN, "Points to a different server"),
                     backendSub, webserverSub,
                     new SubStatus("HTTPS", SubState.PENDING, "Waiting for DNS"));
-            return new PublicationStatus(Overall.ACTION_REQUIRED, "DNS points to a different server",
-                    action, publicIp, subs, null);
+            if (isSubdomain) {
+                return new PublicationStatus(Overall.ACTION_REQUIRED,
+                        "DNS points to a different server",
+                        host + " currently resolves to " + String.join(", ", dns) + ".\n"
+                                + "It should follow " + base + " via this record:",
+                        new PublicationStatus.DnsRecord(firstLabel(host), base), subs, null);
+            }
+            return new PublicationStatus(Overall.ACTION_REQUIRED,
+                    "DNS points to a different server",
+                    host + " resolves to " + String.join(", ", dns) + " instead of this\n"
+                            + "connection's address. " + host + " is your Dynamic DNS address —\n"
+                            + "check the DynDNS configuration in your router or in Settings.",
+                    null, subs, null);
         }
         SubStatus domainSub = new SubStatus("Domain", SubState.OK, dns.get(0));
 

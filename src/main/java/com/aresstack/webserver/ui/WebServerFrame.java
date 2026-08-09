@@ -132,6 +132,13 @@ public class WebServerFrame extends JFrame {
         refresh();
         new Timer(10_000, e -> refreshStatuses()).start();
         refreshStatuses();
+
+        // Optionaler DynDNS-Client: prüft alle 5 Minuten, ob sich die
+        // öffentliche Adresse geändert hat; deaktiviert = keinerlei Aktivität.
+        Timer dynDnsTimer = new Timer(300_000, e ->
+                new Thread(() -> DynDnsClient.updateIfAddressChanged(log), "dyndns-update").start());
+        dynDnsTimer.start();
+        new Thread(() -> DynDnsClient.updateIfAddressChanged(log), "dyndns-update").start();
     }
 
     private void refresh() {

@@ -82,17 +82,15 @@ class PublicationCard extends JPanel {
                 text.add(mutedLine(line));
             }
         }
+        if (status.dnsRecord() != null) {
+            text.add(Box.createVerticalStrut(4));
+            text.add(dnsRecordBlock(status.dnsRecord()));
+        }
         if (status.overall() == PublicationStatus.Overall.ACTION_REQUIRED) {
             text.add(Box.createVerticalStrut(6));
             JPanel actionButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
             actionButtons.setOpaque(false);
             actionButtons.setAlignmentX(LEFT_ALIGNMENT);
-            if (status.copyText() != null) {
-                JButton copy = new JButton("Copy record");
-                copy.addActionListener(e -> Toolkit.getDefaultToolkit().getSystemClipboard()
-                        .setContents(new StringSelection(status.copyText()), null));
-                actionButtons.add(copy);
-            }
             JButton check = new JButton("Check again");
             check.addActionListener(e -> actions.checkAgain());
             actionButtons.add(check);
@@ -140,6 +138,68 @@ class PublicationCard extends JPanel {
         add(right, BorderLayout.EAST);
 
         setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height + 8));
+    }
+
+    /**
+     * Exakt die Feldwerte, die das Formular des DNS-Providers erwartet —
+     * jede Zeile mit eigenem Copy-Button, nie ein zusammengesetzter Befehl.
+     */
+    private JPanel dnsRecordBlock(PublicationStatus.DnsRecord record) {
+        JPanel block = new JPanel(new java.awt.GridBagLayout());
+        block.setOpaque(false);
+        block.setAlignmentX(LEFT_ALIGNMENT);
+        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+        c.insets = new java.awt.Insets(1, 0, 1, 10);
+        c.anchor = java.awt.GridBagConstraints.WEST;
+
+        addDnsRow(block, c, 0, "Type", "CNAME", null, null);
+        addDnsRow(block, c, 1, "Hostname", record.hostname(), record.hostname(), null);
+        addDnsRow(block, c, 2, "Target", record.target(), record.target(),
+                helpButton(record));
+        // Füllzelle, damit die Zeilen links ausgerichtet bleiben, wenn das
+        // Panel auf Kartenbreite gestreckt wird.
+        c.gridy = 0;
+        c.gridx = 4;
+        c.weightx = 1;
+        block.add(javax.swing.Box.createHorizontalGlue(), c);
+        return block;
+    }
+
+    private void addDnsRow(JPanel block, java.awt.GridBagConstraints c, int row,
+                           String label, String value, String copyValue, JButton extra) {
+        c.gridy = row;
+        c.gridx = 0;
+        JLabel name = mutedLine(label);
+        block.add(name, c);
+        c.gridx = 1;
+        JLabel valueLabel = new JLabel(value);
+        valueLabel.setFont(valueLabel.getFont().deriveFont(Font.BOLD));
+        block.add(valueLabel, c);
+        c.gridx = 2;
+        if (copyValue != null) {
+            JButton copy = squareButton("⧉", "Copy " + label.toLowerCase(java.util.Locale.ROOT));
+            copy.addActionListener(e -> Toolkit.getDefaultToolkit().getSystemClipboard()
+                    .setContents(new StringSelection(copyValue), null));
+            block.add(copy, c);
+        }
+        c.gridx = 3;
+        if (extra != null) {
+            block.add(extra, c);
+        }
+    }
+
+    private JButton helpButton(PublicationStatus.DnsRecord record) {
+        JButton help = squareButton("?", "How do I configure this?");
+        help.addActionListener(e -> DnsHelpDialog.open(
+                javax.swing.SwingUtilities.getWindowAncestor(this), record));
+        return help;
+    }
+
+    private static JButton squareButton(String text, String tooltip) {
+        JButton button = new JButton(text);
+        button.setMargin(new java.awt.Insets(1, 5, 1, 5));
+        button.setToolTipText(tooltip);
+        return button;
     }
 
     private static JLabel mutedLine(String line) {
