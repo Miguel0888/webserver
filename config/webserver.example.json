@@ -1,0 +1,27 @@
+{
+  "domain": "aresstack.de",
+  "defaultUpstream": "http://127.0.0.1:8080",
+  "acme": {
+    "email": "miguelangelofernandeziglesias@gmail.com",
+    "ca": "https://acme-v02.api.letsencrypt.org/directory"
+  },
+  "sites": [
+    {
+      "host": "aresstack.de",
+      "routes": [
+        {
+          "path": "/api/*",
+          "upstream": "http://192.168.178.20:9000"
+        }
+      ]
+    },
+    {
+      "host": "askai.aresstack.de",
+      "upstream": "http://192.168.178.30:8080"
+    },
+    {
+      "host": "git.aresstack.de",
+      "upstream": "http://192.168.178.40:3000"
+    }
+  ]
+}

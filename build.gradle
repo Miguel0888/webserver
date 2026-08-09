@@ -1,15 +1,30 @@
+import java.security.MessageDigest
+
 plugins {
     id 'java'
+    id 'application'
 }
 
-group = 'com.arestack'
+group = 'com.aresstack'
 version = '1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+application {
+    mainClass = 'com.aresstack.webserver.launcher.WebServerMain'
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -17,4 +32,86 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+// ---------------------------------------------------------------------------
+// Caddy binary (pinned version, checksum-verified, official GitHub release)
+// ---------------------------------------------------------------------------
+
+ext.caddyVersion = '2.11.4'
+
+def caddyPlatform() {
+    def os = System.getProperty('os.name').toLowerCase()
+    def arch = System.getProperty('os.arch').toLowerCase()
+    def archPart = (arch == 'aarch64' || arch == 'arm64') ? 'arm64' : 'amd64'
+    if (os.contains('win')) return "windows_${archPart}"
+    if (os.contains('mac')) return "mac_${archPart}"
+    return "linux_${archPart}"
+}
+
+// Caddys checksums.txt enthält SHA-512-Hashes.
+def sha512(File file) {
+    def digest = MessageDigest.getInstance('SHA-512')
+    file.withInputStream { input ->
+        def buffer = new byte[8192]
+        int read
+        while ((read = input.read(buffer)) > 0) {
+            digest.update(buffer, 0, read)
+        }
+    }
+    digest.digest().collect { String.format('%02x', it) }.join()
+}
+
+tasks.register('downloadCaddy') {
+    group = 'caddy'
+    description = "Downloads and verifies Caddy ${caddyVersion} into runtime/caddy/bin"
+
+    def platform = caddyPlatform()
+    def isWindows = platform.startsWith('windows')
+    def archiveName = "caddy_${caddyVersion}_${platform}." + (isWindows ? 'zip' : 'tar.gz')
+    def baseUrl = "https://github.com/caddyserver/caddy/releases/download/v${caddyVersion}"
+    def downloadDir = layout.buildDirectory.dir('caddy-download').get().asFile
+    def binDir = file('runtime/caddy/bin')
+    def binaryName = isWindows ? 'caddy.exe' : 'caddy'
+
+    outputs.file(new File(binDir, binaryName))
+
+    doLast {
+        def archive = new File(downloadDir, archiveName)
+        def checksums = new File(downloadDir, "caddy_${caddyVersion}_checksums.txt")
+        downloadDir.mkdirs()
+
+        if (!archive.exists()) {
+            logger.lifecycle("Downloading ${baseUrl}/${archiveName}")
+            new URL("${baseUrl}/${archiveName}").withInputStream { i -> archive.withOutputStream { it << i } }
+        }
+        new URL("${baseUrl}/caddy_${caddyVersion}_checksums.txt").withInputStream { i -> checksums.withOutputStream { it << i } }
+
+        def expectedLine = checksums.readLines().find { it.endsWith(archiveName) }
+        if (expectedLine == null) {
+            throw new GradleException("No checksum entry for ${archiveName}")
+        }
+        def expected = expectedLine.split(/\s+/)[0]
+        def actual = sha512(archive)
+        if (expected != actual) {
+            archive.delete()
+            throw new GradleException("Checksum mismatch for ${archiveName}: expected ${expected}, got ${actual}")
+        }
+        logger.lifecycle("Checksum verified: ${actual}")
+
+        binDir.mkdirs()
+        if (isWindows) {
+            copy {
+                from(zipTree(archive)) { include binaryName }
+                into binDir
+            }
+        } else {
+            copy {
+                from(tarTree(resources.gzip(archive))) { include binaryName }
+                into binDir
+            }
+            new File(binDir, binaryName).setExecutable(true)
+        }
+        logger.lifecycle("Caddy binary ready: ${new File(binDir, binaryName)}")
+    }
 }
