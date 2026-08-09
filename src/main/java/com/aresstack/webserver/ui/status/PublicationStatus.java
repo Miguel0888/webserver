@@ -2,53 +2,48 @@ package com.aresstack.webserver.ui.status;
 
 import com.aresstack.webserver.ui.CertificateStatusChecker;
 
+import java.util.List;
+
 /**
- * Fachlicher Zustand einer Veröffentlichung — von der UI angezeigt, von
- * {@link PublicationStatusPresenter} ermittelt. Kein Zustand wird aus einer
- * beliebigen Exception "erraten".
+ * Gesamtzustand einer Veröffentlichung als Zustandsmaschine.
+ *
+ * {@code ACTION_REQUIRED}: der Benutzer muss etwas tun — die konkrete
+ * Handlung steht in {@code actionText} und erscheint direkt auf der Karte.
+ * {@code SETTING_UP}: die Anwendung arbeitet selbst, keine Aktion nötig.
+ * {@code LIVE}: die öffentliche Adresse ist End-to-End funktionsfähig —
+ * die Erreichbarkeit des internen Backends allein ist nur ein Teilstatus.
  */
 public record PublicationStatus(
-        HttpsState https,
-        Reachability destination,
+        Overall overall,
+        String headline,
+        String actionText,
+        String copyText,
+        List<SubStatus> subStatuses,
         CertificateStatusChecker.CertificateInfo certificate) {
 
-    public enum HttpsState {
-        SERVER_STOPPED,
-        HTTPS_OFF,
-        PORT_UNAVAILABLE,
+    public enum Overall {
+        STOPPED,
+        ACTION_REQUIRED,
         SETTING_UP,
-        SECURED,
-        EXPIRING,
-        EXPIRED
+        LIVE
     }
 
-    public enum Reachability {
-        REACHABLE,
-        UNREACHABLE,
-        UNKNOWN
+    public enum SubState {
+        OK,
+        WARN,
+        PENDING,
+        OFF
     }
 
-    public static PublicationStatus unknown() {
-        return new PublicationStatus(HttpsState.SERVER_STOPPED, Reachability.UNKNOWN, null);
+    /** Teilzustand wie "Domain — DNS record missing" oder "Backend — reachable". */
+    public record SubStatus(String label, SubState state, String detail) {
     }
 
-    /** Kurze Statuszeile für die Karte. */
-    public String cardLine(boolean httpsEnabled) {
-        if (destination == Reachability.UNREACHABLE) {
-            return "Destination is currently unreachable";
-        }
-        return switch (https) {
-            case SERVER_STOPPED -> "Server is stopped";
-            case HTTPS_OFF -> httpsEnabled ? "" : "Served without HTTPS";
-            case PORT_UNAVAILABLE -> "HTTPS port is not available";
-            case SETTING_UP -> "Setting up… Requesting certificate";
-            case SECURED -> "Certificate valid · Automatic renewal";
-            case EXPIRING -> "Certificate expires soon · Renewal is automatic";
-            case EXPIRED -> "Certificate expired";
-        };
+    public static PublicationStatus checking() {
+        return new PublicationStatus(Overall.SETTING_UP, "Checking…", null, null, List.of(), null);
     }
 
     public boolean isSecured() {
-        return https == HttpsState.SECURED || https == HttpsState.EXPIRING;
+        return certificate != null && !certificate.isExpired();
     }
 }

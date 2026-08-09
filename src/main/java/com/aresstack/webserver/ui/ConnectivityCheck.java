@@ -66,7 +66,8 @@ public final class ConnectivityCheck {
                 listensHttp, listensHttps, publicHttp, publicHttps);
     }
 
-    private static List<String> resolve(String host) {
+    /** DNS-Auflösung eines Hosts; leere Liste, wenn kein Eintrag existiert. */
+    public static List<String> resolve(String host) {
         try {
             return Arrays.stream(InetAddress.getAllByName(host))
                     .map(InetAddress::getHostAddress)
@@ -76,7 +77,8 @@ public final class ConnectivityCheck {
         }
     }
 
-    private static String publicAddress() {
+    /** Öffentliche Adresse dieses Anschlusses; {@code null} wenn nicht ermittelbar. */
+    public static String publicAddress() {
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(4))
                 .build();

@@ -29,6 +29,8 @@ public class PublicationsPanel extends JPanel {
         void remove(Site site);
 
         void details(Site site);
+
+        void checkAgain();
     }
 
     private final JPanel cards = new JPanel();
@@ -62,11 +64,29 @@ public class PublicationsPanel extends JPanel {
         cards.removeAll();
         for (Site site : configuration.sites()) {
             PublicationStatus status = statuses.getOrDefault(
-                    site.host().value(), PublicationStatus.unknown());
+                    site.host().value(), PublicationStatus.checking());
             cards.add(new PublicationCard(site, configuration.defaultUpstream(), status,
-                    () -> actions.edit(site),
-                    () -> actions.remove(site),
-                    () -> actions.details(site)));
+                    new PublicationCard.CardActions() {
+                        @Override
+                        public void edit() {
+                            actions.edit(site);
+                        }
+
+                        @Override
+                        public void remove() {
+                            actions.remove(site);
+                        }
+
+                        @Override
+                        public void details() {
+                            actions.details(site);
+                        }
+
+                        @Override
+                        public void checkAgain() {
+                            actions.checkAgain();
+                        }
+                    }));
         }
         if (configuration.sites().isEmpty()) {
             cards.add(emptyState());

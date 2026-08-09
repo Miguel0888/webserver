@@ -78,7 +78,8 @@ public class PublicationEditor extends JDialog {
         secure.setLayout(new BoxLayout(secure, BoxLayout.Y_AXIS));
         secure.add(httpsBox);
         JLabel secureHint = new JLabel(
-                "<html><small>Certificate and renewal are handled automatically.</small></html>");
+                "<html><small>AresStack automatically obtains and renews the certificate.<br>"
+                        + "After publishing, it checks whether your DNS and network are ready.</small></html>");
         secureHint.setBorder(BorderFactory.createEmptyBorder(0, 22, 0, 0));
         secure.add(secureHint);
         Forms.addRow(form, c, row++, "Secure connection", secure);

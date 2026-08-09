@@ -1,14 +1,11 @@
 package com.aresstack.webserver.ui.publication;
 
 import com.aresstack.webserver.domain.Site;
-import com.aresstack.webserver.domain.Upstream;
 import com.aresstack.webserver.domain.WebServerConfiguration;
-import com.aresstack.webserver.ui.ConnectivityCheck;
 import com.aresstack.webserver.ui.status.PublicationStatus;
 import com.aresstack.webserver.ui.status.PublicationStatusPresenter;
 
 import javax.swing.BorderFactory;
-import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -23,8 +20,9 @@ import java.awt.Window;
 import java.text.SimpleDateFormat;
 
 /**
- * Statusansicht einer Veröffentlichung: Domain, Webserver, Ziel und HTTPS als
- * Ampelzeilen — Hinweise zum Beheben erscheinen nur, wenn etwas kaputt ist.
+ * Detailansicht des Veröffentlichungszustands. Sie ist nie notwendig, um die
+ * Einrichtung abzuschließen — alle Handlungsaufforderungen stehen bereits auf
+ * der Karte; hier gibt es dieselben Informationen mit Zertifikatsdaten.
  */
 public class PublicationStatusView extends JDialog {
 
@@ -57,30 +55,23 @@ public class PublicationStatusView extends JDialog {
 
         getContentPane().add(rows, BorderLayout.CENTER);
         getContentPane().add(buttons, BorderLayout.SOUTH);
-        setMinimumSize(new java.awt.Dimension(460, 260));
+        setMinimumSize(new java.awt.Dimension(480, 280));
         refresh(checkAgain);
         pack();
         setLocationRelativeTo(owner);
     }
 
-    private record Probe(ConnectivityCheck.Result connectivity, PublicationStatus status) {
-    }
-
     private void refresh(JButton checkAgain) {
         checkAgain.setEnabled(false);
         rows.removeAll();
-        rows.add(statusRow(MUTED, "Checking…", null));
+        rows.add(line(MUTED, "Checking…"));
         rows.revalidate();
         rows.repaint();
 
-        new SwingWorker<Probe, Void>() {
+        new SwingWorker<PublicationStatus, Void>() {
             @Override
-            protected Probe doInBackground() {
-                ConnectivityCheck.Result connectivity = ConnectivityCheck.run(
-                        site.host().value(), configuration.httpPort(), configuration.httpsPort());
-                PublicationStatus status = new PublicationStatusPresenter()
-                        .probe(configuration, site, serverRunning);
-                return new Probe(connectivity, status);
+            protected PublicationStatus doInBackground() {
+                return new PublicationStatusPresenter().probe(configuration, site, serverRunning);
             }
 
             @Override
@@ -90,125 +81,66 @@ public class PublicationStatusView extends JDialog {
                     render(get());
                 } catch (Exception e) {
                     rows.removeAll();
-                    rows.add(statusRow(WARN, "The check could not be completed.", null));
+                    rows.add(line(WARN, "The check could not be completed."));
                     rows.revalidate();
                 }
             }
         }.execute();
     }
 
-    private void render(Probe probe) {
-        ConnectivityCheck.Result connectivity = probe.connectivity();
-        PublicationStatus status = probe.status();
-
+    private void render(PublicationStatus status) {
         rows.removeAll();
 
-        // Domain
-        if (connectivity.dnsAddresses().isEmpty()) {
-            String target = connectivity.publicAddress() != null
-                    ? connectivity.publicAddress() : "this server's public address";
-            rows.add(statusRow(WARN, "Domain — no DNS record exists",
-                    "There is no DNS entry for " + site.host() + " yet.\n"
-                            + "Create one at your domain provider:\n"
-                            + "CNAME " + site.host().value().split("\\.")[0]
-                            + " → " + hostBaseDomain() + "   (or an A record → " + target + ")\n"
-                            + "The certificate is requested again automatically."));
-        } else if (connectivity.dnsMatches() == null) {
-            rows.add(statusRow(MUTED, "Domain — could not be verified", null));
-        } else if (connectivity.dnsMatches()) {
-            rows.add(statusRow(OK, "Domain — Correct", null));
-        } else {
-            rows.add(statusRow(WARN, "Domain — does not point to this server",
-                    site.host() + " currently points to "
-                            + String.join(", ", connectivity.dnsAddresses())
-                            + " instead of " + connectivity.publicAddress() + ".\n"
-                            + "Change the DNS record to: " + connectivity.publicAddress()));
+        JLabel headline = new JLabel(status.headline());
+        headline.setFont(headline.getFont().deriveFont(Font.BOLD, headline.getFont().getSize() + 2f));
+        headline.setForeground(status.overall() == PublicationStatus.Overall.ACTION_REQUIRED ? WARN
+                : status.overall() == PublicationStatus.Overall.LIVE ? OK : MUTED);
+        rows.add(headline);
+        rows.add(javax.swing.Box.createVerticalStrut(6));
+
+        if (status.actionText() != null) {
+            for (String textLine : status.actionText().split("\n")) {
+                rows.add(line(MUTED, textLine));
+            }
+            rows.add(javax.swing.Box.createVerticalStrut(8));
         }
 
-        // Webserver
-        boolean listening = connectivity.serverListensHttp() && connectivity.serverListensHttps();
-        if (listening) {
-            rows.add(statusRow(OK, "Webserver — Reachable", null));
-        } else if (!serverRunning) {
-            rows.add(statusRow(WARN, "Webserver — Stopped", "Start the server."));
-        } else {
-            rows.add(statusRow(WARN, "Webserver — Not listening on port "
-                            + (connectivity.serverListensHttp() ? configuration.httpsPort() : configuration.httpPort()),
-                    "Another application may be using the port."));
+        for (PublicationStatus.SubStatus sub : status.subStatuses()) {
+            Color color = switch (sub.state()) {
+                case OK -> OK;
+                case WARN -> WARN;
+                case PENDING, OFF -> MUTED;
+            };
+            rows.add(line(color, symbol(sub.state()) + "  " + sub.label() + " — " + sub.detail()));
         }
 
-        // Destination
-        Upstream target = site.effectiveUpstream(configuration.defaultUpstream());
-        if (status.destination() == PublicationStatus.Reachability.REACHABLE) {
-            rows.add(statusRow(OK, "Destination — Reachable", null));
-        } else {
-            rows.add(statusRow(WARN, "Destination — Unreachable",
-                    target.host() + ":" + target.port()
-                            + " did not respond. Check that the service is running."));
+        if (status.certificate() != null) {
+            SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy");
+            rows.add(javax.swing.Box.createVerticalStrut(8));
+            rows.add(line(MUTED, "Certificate issued " + format.format(status.certificate().issued())
+                    + " · valid until " + format.format(status.certificate().expires())
+                    + " · renews automatically"));
         }
-
-        // HTTPS
-        rows.add(httpsRow(status));
 
         rows.revalidate();
         rows.repaint();
         pack();
     }
 
-    /** Basisdomain der Site (askai.aresstack.de → aresstack.de) für die CNAME-Empfehlung. */
-    private String hostBaseDomain() {
-        String host = site.host().value();
-        int firstDot = host.indexOf('.');
-        return firstDot > 0 && host.indexOf('.', firstDot + 1) > 0
-                ? host.substring(firstDot + 1)
-                : host;
-    }
-
-    private JPanel httpsRow(PublicationStatus status) {
-        return switch (status.https()) {
-            case SECURED -> statusRow(OK, "HTTPS — Secured",
-                    status.certificate() == null ? null
-                            : "Certificate renews automatically · valid until "
-                            + new SimpleDateFormat("dd.MM.yyyy").format(status.certificate().expires()));
-            case EXPIRING -> statusRow(WARN, "HTTPS — Certificate expires soon",
-                    "Renewal is automatic; no action needed unless this persists.");
-            case EXPIRED -> statusRow(WARN, "HTTPS — Certificate expired",
-                    "Check that the domain still points to this server and that\n"
-                            + "ports 80 and 443 are forwarded.");
-            case SETTING_UP -> statusRow(MUTED, "HTTPS — Setting up…",
-                    "Requesting certificate. This usually takes under a minute.");
-            case PORT_UNAVAILABLE -> statusRow(WARN, "HTTPS — Port unavailable",
-                    "Port " + configuration.httpsPort() + " is not accepting connections.");
-            case SERVER_STOPPED -> statusRow(MUTED, "HTTPS — Server stopped", null);
-            case HTTPS_OFF -> statusRow(MUTED, "HTTPS — Disabled for this service", null);
+    private static String symbol(PublicationStatus.SubState state) {
+        return switch (state) {
+            case OK -> "✓";
+            case WARN -> "⚠";
+            case PENDING -> "◌";
+            case OFF -> "○";
         };
     }
 
-    private static JPanel statusRow(Color color, String title, String detail) {
-        JPanel row = new JPanel(new BorderLayout(10, 2));
-        row.setOpaque(false);
-        row.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        JLabel dot = new JLabel("●");
-        dot.setForeground(color);
-        row.add(dot, BorderLayout.WEST);
-        JPanel text = new JPanel();
-        text.setOpaque(false);
-        text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD));
-        text.add(titleLabel);
-        if (detail != null) {
-            for (String line : detail.split("\n")) {
-                JLabel detailLabel = new JLabel(line);
-                detailLabel.setForeground(MUTED);
-                text.add(detailLabel);
-            }
-        }
-        row.add(text, BorderLayout.CENTER);
-        JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setOpaque(false);
-        wrapper.add(row, BorderLayout.WEST);
-        return wrapper;
+    private static JLabel line(Color color, String text) {
+        JLabel label = new JLabel(text);
+        label.setForeground(color);
+        label.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+        return label;
     }
 
     public static void open(Window owner, WebServerConfiguration configuration, Site site,

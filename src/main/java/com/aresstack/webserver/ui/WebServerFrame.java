@@ -109,6 +109,11 @@ public class WebServerFrame extends JFrame {
                 PublicationStatusView.open(WebServerFrame.this,
                         controller.configuration(), site, controller.isRunning());
             }
+
+            @Override
+            public void checkAgain() {
+                refreshStatuses();
+            }
         });
 
         statusBar = new ServerStatusBar(
