@@ -83,6 +83,29 @@ class JsonConfigurationRepositoryTest {
     }
 
     @Test
+    void customPortsAndDisabledHttpsRoundTrip(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("webserver.json");
+        Files.writeString(file, """
+                {
+                  "domain": "aresstack.de",
+                  "httpPort": 8081,
+                  "httpsPort": 8444,
+                  "acme": { "email": "admin@aresstack.de" },
+                  "sites": [ { "host": "aresstack.de", "https": false } ]
+                }
+                """);
+        JsonConfigurationRepository repository = new JsonConfigurationRepository(file);
+
+        WebServerConfiguration configuration = repository.load();
+        assertEquals(8081, configuration.httpPort());
+        assertEquals(8444, configuration.httpsPort());
+        assertEquals(false, configuration.sites().get(0).httpsEnabled());
+
+        repository.save(configuration);
+        assertEquals(configuration, repository.load());
+    }
+
+    @Test
     void rejectsMissingRequiredFields(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("webserver.json");
         Files.writeString(file, "{ \"domain\": \"aresstack.de\" }");

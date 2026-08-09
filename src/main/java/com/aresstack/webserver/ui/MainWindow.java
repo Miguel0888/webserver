@@ -122,7 +122,8 @@ public class MainWindow extends JFrame {
         WebServerConfiguration config = controller.configuration();
         long httpsCount = config.sites().stream().filter(Site::httpsEnabled).count();
         footerStatus.setText("Server: " + (running ? "Running" : "Stopped")
-                + "     HTTP: 80     HTTPS: 443     Domains: " + config.sites().size()
+                + "     HTTP: " + config.httpPort() + "     HTTPS: " + config.httpsPort()
+                + "     Domains: " + config.sites().size()
                 + " active" + (httpsCount > 0 ? "     Certificates: " + httpsCount + " managed" : ""));
 
         domainList.removeAll();
@@ -191,7 +192,7 @@ public class MainWindow extends JFrame {
                     }
                     String host = site.host().value();
                     try {
-                        var info = CertificateStatusChecker.fetch(host, 443);
+                        var info = CertificateStatusChecker.fetch(host, config.httpsPort());
                         certificates.put(host, info);
                         labels.put(host, info.isExpired() ? "Certificate expired" : "HTTPS ✓");
                     } catch (Exception e) {
@@ -225,29 +226,43 @@ public class MainWindow extends JFrame {
     }
 
     private void openDomain(Site site) {
-        Object[] options = certificateDetail(site) == null
-                ? new Object[]{"Edit", "Remove", "Cancel"}
-                : new Object[]{"Edit", "Remove", "Certificate…", "Cancel"};
+        java.util.List<String> options = new java.util.ArrayList<>(
+                java.util.List.of("Edit", "Remove", "Check internet access"));
+        if (certificateDetail(site) != null) {
+            options.add("Certificate…");
+        }
+        options.add("Cancel");
         int choice = JOptionPane.showOptionDialog(this,
                 site.host().value() + "\n"
                         + site.effectiveUpstream(controller.configuration().defaultUpstream()) + "\n"
                         + (site.httpsEnabled() ? "Public HTTPS: Enabled" : "Public HTTPS: Disabled"),
                 site.host().value(),
-                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
-        if (choice == 0) {
-            Site updated = DomainDialog.show(this, site, controller.configuration().defaultUpstream());
-            if (updated != null) {
-                runAsync("Edit Domain", () -> controller.updateSite(site.host(), updated));
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null,
+                options.toArray(), options.get(0));
+        String selected = choice >= 0 ? options.get(choice) : "Cancel";
+        switch (selected) {
+            case "Edit" -> {
+                Site updated = DomainDialog.show(this, site, controller.configuration().defaultUpstream());
+                if (updated != null) {
+                    runAsync("Edit Domain", () -> controller.updateSite(site.host(), updated));
+                }
             }
-        } else if (choice == 1) {
-            int confirm = JOptionPane.showConfirmDialog(this,
-                    "Remove " + site.host() + "?\n\nThe domain will no longer be served by this webserver.",
-                    "Remove Domain", JOptionPane.OK_CANCEL_OPTION);
-            if (confirm == JOptionPane.OK_OPTION) {
-                runAsync("Remove Domain", () -> controller.removeSite(site.host()));
+            case "Remove" -> {
+                int confirm = JOptionPane.showConfirmDialog(this,
+                        "Remove " + site.host() + "?\n\nThe domain will no longer be served by this webserver.",
+                        "Remove Domain", JOptionPane.OK_CANCEL_OPTION);
+                if (confirm == JOptionPane.OK_OPTION) {
+                    runAsync("Remove Domain", () -> controller.removeSite(site.host()));
+                }
             }
-        } else if (choice == 2 && options.length == 4) {
-            showCertificateDetails(site);
+            case "Check internet access" -> {
+                WebServerConfiguration config = controller.configuration();
+                ConnectivityDialog.show(this, site.host().value(),
+                        config.httpPort(), config.httpsPort(), certificateLabel(site));
+            }
+            case "Certificate…" -> showCertificateDetails(site);
+            default -> {
+            }
         }
     }
 

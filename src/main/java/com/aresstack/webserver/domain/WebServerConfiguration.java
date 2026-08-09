@@ -13,7 +13,9 @@ public record WebServerConfiguration(
         DomainName domain,
         AcmeConfiguration acme,
         Upstream defaultUpstream,
-        List<Site> sites) {
+        List<Site> sites,
+        int httpPort,
+        int httpsPort) {
 
     public WebServerConfiguration {
         Objects.requireNonNull(domain, "domain");
@@ -21,6 +23,18 @@ public record WebServerConfiguration(
         Objects.requireNonNull(defaultUpstream, "defaultUpstream");
         Objects.requireNonNull(sites, "sites");
         sites = List.copyOf(sites);
+        if (httpPort < 1 || httpPort > 65535 || httpsPort < 1 || httpsPort > 65535) {
+            throw new IllegalArgumentException(
+                    "Ports out of range: http=" + httpPort + " https=" + httpsPort);
+        }
+        if (httpPort == httpsPort) {
+            throw new IllegalArgumentException("HTTP and HTTPS port must differ: " + httpPort);
+        }
+    }
+
+    public WebServerConfiguration(DomainName domain, AcmeConfiguration acme,
+                                  Upstream defaultUpstream, List<Site> sites) {
+        this(domain, acme, defaultUpstream, sites, 80, 443);
     }
 
     /**

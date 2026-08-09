@@ -26,7 +26,8 @@ import java.util.Optional;
 public class JsonConfigurationRepository implements ConfigurationRepository {
 
     // Dateiformat von webserver.json — bewusst getrennt vom Domainmodell.
-    record FileModel(String domain, String defaultUpstream, AcmeModel acme, List<SiteModel> sites) {
+    record FileModel(String domain, String defaultUpstream, Integer httpPort, Integer httpsPort,
+                     AcmeModel acme, List<SiteModel> sites) {
     }
 
     record AcmeModel(String email, String ca) {
@@ -97,7 +98,10 @@ public class JsonConfigurationRepository implements ConfigurationRepository {
             return new Site(new DomainName(site.host()), upstream, routes, httpsEnabled);
         }).toList();
 
-        return new WebServerConfiguration(new DomainName(model.domain()), acme, defaultUpstream, sites);
+        int httpPort = model.httpPort() != null ? model.httpPort() : 80;
+        int httpsPort = model.httpsPort() != null ? model.httpsPort() : 443;
+        return new WebServerConfiguration(new DomainName(model.domain()), acme, defaultUpstream,
+                sites, httpPort, httpsPort);
     }
 
     static FileModel fromDomain(WebServerConfiguration configuration) {
@@ -112,6 +116,8 @@ public class JsonConfigurationRepository implements ConfigurationRepository {
         return new FileModel(
                 configuration.domain().value(),
                 configuration.defaultUpstream().toString(),
+                configuration.httpPort() == 80 ? null : configuration.httpPort(),
+                configuration.httpsPort() == 443 ? null : configuration.httpsPort(),
                 new AcmeModel(configuration.acme().email(), configuration.acme().ca()),
                 sites);
     }

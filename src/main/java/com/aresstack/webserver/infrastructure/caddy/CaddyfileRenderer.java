@@ -61,6 +61,13 @@ public class CaddyfileRenderer {
         if (options.httpOnly()) {
             out.append("    default_bind 127.0.0.1\n");
             out.append("    http_port ").append(options.httpPort()).append('\n');
+        } else {
+            if (configuration.httpPort() != 80) {
+                out.append("    http_port ").append(configuration.httpPort()).append('\n');
+            }
+            if (configuration.httpsPort() != 443) {
+                out.append("    https_port ").append(configuration.httpsPort()).append('\n');
+            }
         }
         out.append("}\n");
     }

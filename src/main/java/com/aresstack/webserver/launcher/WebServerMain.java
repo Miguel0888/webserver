@@ -85,15 +85,18 @@ public final class WebServerMain {
         MainWindow window = new MainWindow(controller, log);
         window.setVisible(true);
 
-        // Server automatisch starten; Fehler landen verständlich im Dialog.
-        new Thread(() -> {
-            try {
-                controller.start();
-            } catch (RuntimeException e) {
-                SwingUtilities.invokeLater(() ->
-                        FriendlyErrors.show(window, "Start Server", e));
-            }
-        }, "server-autostart").start();
+        // Server automatisch starten (abschaltbar in den Einstellungen);
+        // Fehler landen verständlich im Dialog.
+        if (com.aresstack.webserver.ui.AppPreferences.autostartServer()) {
+            new Thread(() -> {
+                try {
+                    controller.start();
+                } catch (RuntimeException e) {
+                    SwingUtilities.invokeLater(() ->
+                            FriendlyErrors.show(window, "Start Server", e));
+                }
+            }, "server-autostart").start();
+        }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             if (controller.isRunning()) {

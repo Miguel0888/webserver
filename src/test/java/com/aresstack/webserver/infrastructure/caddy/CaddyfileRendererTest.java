@@ -94,6 +94,33 @@ class CaddyfileRendererTest {
     }
 
     @Test
+    void nonDefaultPortsAppearInGlobalOptions() {
+        WebServerConfiguration configuration = new WebServerConfiguration(
+                new DomainName("aresstack.de"),
+                new AcmeConfiguration("admin@aresstack.de", AcmeConfiguration.LETS_ENCRYPT_PRODUCTION),
+                Upstream.parse("http://127.0.0.1:8080"),
+                List.of(Site.of("aresstack.de")),
+                8081, 8444);
+        String caddyfile = renderer.render(configuration);
+        assertTrue(caddyfile.contains("http_port 8081"));
+        assertTrue(caddyfile.contains("https_port 8444"));
+    }
+
+    @Test
+    void defaultPortsProduceNoPortDirectives() {
+        String caddyfile = renderer.render(config(List.of(Site.of("aresstack.de"))));
+        assertTrue(!caddyfile.contains("http_port") && !caddyfile.contains("https_port"));
+    }
+
+    @Test
+    void httpsDisabledSiteIsServedViaHttpOnly() {
+        WebServerConfiguration configuration = config(List.of(new Site(
+                new DomainName("intern.aresstack.de"),
+                Optional.empty(), List.of(), false)));
+        assertTrue(renderer.render(configuration).contains("http://intern.aresstack.de {"));
+    }
+
+    @Test
     void adminIsAlwaysLoopbackOnly() {
         String caddyfile = renderer.render(config(List.of(Site.of("aresstack.de"))));
         assertTrue(caddyfile.contains("admin 127.0.0.1:2019"));

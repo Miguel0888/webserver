@@ -112,14 +112,25 @@ public class WebServerController {
                 config.domain(),
                 new AcmeConfiguration(email, config.acme().ca()),
                 config.defaultUpstream(),
-                config.sites()));
+                config.sites(),
+                config.httpPort(),
+                config.httpsPort()));
         log.info("Updated Let's Encrypt account email");
+    }
+
+    public synchronized void updatePorts(int httpPort, int httpsPort) {
+        WebServerConfiguration config = configuration();
+        applyNew(new WebServerConfiguration(
+                config.domain(), config.acme(), config.defaultUpstream(), config.sites(),
+                httpPort, httpsPort));
+        log.info("Changed server ports to HTTP " + httpPort + " / HTTPS " + httpsPort);
     }
 
     private WebServerConfiguration withSites(List<Site> sites) {
         WebServerConfiguration config = configuration();
         return new WebServerConfiguration(
-                config.domain(), config.acme(), config.defaultUpstream(), sites);
+                config.domain(), config.acme(), config.defaultUpstream(), sites,
+                config.httpPort(), config.httpsPort());
     }
 
     /**
