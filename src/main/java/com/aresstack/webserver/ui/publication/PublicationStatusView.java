@@ -104,7 +104,16 @@ public class PublicationStatusView extends JDialog {
         rows.removeAll();
 
         // Domain
-        if (connectivity.dnsMatches() == null) {
+        if (connectivity.dnsAddresses().isEmpty()) {
+            String target = connectivity.publicAddress() != null
+                    ? connectivity.publicAddress() : "this server's public address";
+            rows.add(statusRow(WARN, "Domain — no DNS record exists",
+                    "There is no DNS entry for " + site.host() + " yet.\n"
+                            + "Create one at your domain provider:\n"
+                            + "CNAME " + site.host().value().split("\\.")[0]
+                            + " → " + hostBaseDomain() + "   (or an A record → " + target + ")\n"
+                            + "The certificate is requested again automatically."));
+        } else if (connectivity.dnsMatches() == null) {
             rows.add(statusRow(MUTED, "Domain — could not be verified", null));
         } else if (connectivity.dnsMatches()) {
             rows.add(statusRow(OK, "Domain — Correct", null));
@@ -144,6 +153,15 @@ public class PublicationStatusView extends JDialog {
         rows.revalidate();
         rows.repaint();
         pack();
+    }
+
+    /** Basisdomain der Site (askai.aresstack.de → aresstack.de) für die CNAME-Empfehlung. */
+    private String hostBaseDomain() {
+        String host = site.host().value();
+        int firstDot = host.indexOf('.');
+        return firstDot > 0 && host.indexOf('.', firstDot + 1) > 0
+                ? host.substring(firstDot + 1)
+                : host;
     }
 
     private JPanel httpsRow(PublicationStatus status) {
