@@ -130,6 +130,47 @@ Snapshot-Release (Windows, alle Tests inklusive echtem Caddy-Prozess).
 - Backend-Verbindungen mit HTTPS validieren Zertifikate regulär;
   `tls_insecure_skip_verify` wird niemals gesetzt.
 
+## OAuth-Dienste veröffentlichen (z.B. ChatGPT-Konnektoren / MCP)
+
+AresStack Webserver terminiert TLS und **reicht OAuth ausschließlich durch**.
+Er ist kein OAuth-Server: Er verwaltet **weder `client_id` noch
+`client_secret`**, stellt keine Token aus und kennt keine Scopes. Jede
+Anfrage unter der veröffentlichten Domain — auch `/oauth/…` und
+`/.well-known/…` — wird unverändert an das Ziel-Backend weitergereicht.
+
+Damit die Delegation funktioniert, muss die **Ziel-Anwendung selbst** (hier
+am Beispiel eines AskAI-MCP-Servers hinter `askai.aresstack.de`) Folgendes
+können:
+
+| Anforderung | Konkret |
+|---|---|
+| Eigene OAuth2-Endpunkte unter der öffentlichen Domain | z.B. `https://askai.aresstack.de/oauth/authorize` und `…/oauth/token` — die Pfade sind frei wählbar, müssen aber über die veröffentlichte HTTPS-Adresse erreichbar sein |
+| OIDC-Discovery (falls OpenID Connect genutzt wird) | `https://askai.aresstack.de/.well-known/openid-configuration` mit korrekten absoluten URLs |
+| Client-Verwaltung | `client_id`/`client_secret` erzeugen, speichern und prüfen (z.B. `client_secret_post` am Token-Endpunkt); die Callback-URL des Konsumenten whitelisten (bei ChatGPT: `https://chatgpt.com/connector/oauth/…`) |
+| Scopes definieren und durchsetzen | z.B. der Scope `mcp` für ChatGPT-MCP-Konnektoren |
+| Proxy-Bewusstsein | Die Anfrage kommt vom Webserver per HTTP im LAN an; ausgegebene URLs (Issuer, Redirects) müssen trotzdem die öffentliche `https://`-Adresse verwenden — dafür die von Caddy gesetzten `X-Forwarded-Proto`/`X-Forwarded-Host`-Header auswerten |
+| Dynamic Client Registration (optional) | Wird DCR nicht unterstützt, bleibt die Registrierungs-URL beim Konsumenten leer und es wird ein benutzerdefinierter Client mit festen Zugangsdaten verwendet |
+
+So sieht die Gegenseite aus — die Einrichtung eines ChatGPT-Konnektors
+gegen einen hinter AresStack Webserver veröffentlichten Dienst:
+
+**OAuth-Endpunkte:** Auth-, Token- und OIDC-Konfigurations-URL zeigen alle
+auf die veröffentlichte Domain; der Webserver leitet sie nur weiter.
+
+![ChatGPT-Konnektor: OAuth-Endpunkte unter der veröffentlichten Domain](img/img_2.png)
+
+**Benutzerdefinierter OAuth-Client:** `client_id` und `client_secret`
+stammen aus der Ziel-Anwendung (nicht aus AresStack Webserver) und werden
+beim Konsumenten hinterlegt; dessen Callback-URL muss die Ziel-Anwendung
+akzeptieren.
+
+![ChatGPT-Konnektor: benutzerdefinierter OAuth-Client mit Callback-URL und Secret](img/img_1.png)
+
+**Scopes:** Auch die Scopes (hier `mcp`) definiert und prüft die
+Ziel-Anwendung.
+
+![ChatGPT-Konnektor: Standard-Scope mcp](img/img.png)
+
 ## Lizenz
 
 Caddy ist Apache-2.0-lizenziert; die Lizenz liegt dem Release unter
