@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Windows-Runner, damit das Fat JAR die caddy.exe für die Zielplattform
+    # enthält und die Caddy-in-the-loop-Integrationstests das echte Binary nutzen.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Determine version from tag
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Test and build fat jar
+        run: ./gradlew.bat test fatJar "-PreleaseVersion=${{ steps.version.outputs.version }}"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            build/libs/*-all.jar \
+            --title "AresStack Webserver ${{ steps.version.outputs.version }}" \
+            --notes "AresStack Webserver ${{ steps.version.outputs.version }}
+
+          Selbst lauffähiges Fat JAR: \`java -jar aresstack-webserver-${{ steps.version.outputs.version }}-all.jar\` (Java 21).
+          Caddy ist checksummen-verifiziert eingebettet und wird beim ersten Start entpackt.
+          Siehe README für Voraussetzungen (DynDNS, Portweiterleitung 80/443) und Einrichtung."

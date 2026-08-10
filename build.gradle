@@ -6,7 +6,8 @@ plugins {
 }
 
 group = 'com.aresstack'
-version = '1.0-SNAPSHOT'
+// Release-Builds setzen die Version über -PreleaseVersion=<x.y.z> (aus dem Git-Tag).
+version = findProperty('releaseVersion') ?: '1.0-SNAPSHOT'
 
 java {
     toolchain {
