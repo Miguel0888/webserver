@@ -15,6 +15,12 @@
     Ueberspringt die Auswahl und nutzt direkt diese Java-Installation
     (Ordner mit bin\java.exe oder direkt der Pfad zu java.exe).
 
+.PARAMETER Root
+    Wurzelverzeichnis der Installation (enthaelt config\webserver.json, data\,
+    generated\, logs\, bin\caddy.exe). Ohne Angabe der Ordner des Jars - genau
+    wie bei den generierten Startskripten (APP_HOME). Wird als
+    -Dwebserver.root uebergeben, damit das Arbeitsverzeichnis egal ist.
+
 .PARAMETER JvmArgs
     Zusaetzliche JVM-Argumente, z.B. -JvmArgs '-Xmx1g'
 
@@ -30,6 +36,7 @@
 [CmdletBinding()]
 param(
     [string]   $Jar,
+    [string]   $Root,
     [string]   $JavaHome,
     [string[]] $JvmArgs = @(),
     [string[]] $AppArgs = @()
@@ -214,14 +221,29 @@ if ($java.Major -lt $MinJavaVersion) {
     if ($go -notmatch '^(j|y)') { return }
 }
 
+# Ohne -Dwebserver.root nimmt die Anwendung das Arbeitsverzeichnis als
+# Installationswurzel und legt dort eine leere Konfiguration an.
+if ([string]::IsNullOrWhiteSpace($Root)) { $Root = Split-Path -Parent $jarPath }
+if (-not (Test-Path -LiteralPath $Root)) { throw "Wurzelverzeichnis nicht gefunden: $Root" }
+$rootPath = (Resolve-Path -LiteralPath $Root).Path
+
+$configFile = Join-Path $rootPath 'config\webserver.json'
+
 $arguments = @()
+$arguments += "-Dwebserver.root=$rootPath"
 $arguments += $JvmArgs
 $arguments += @('-jar', $jarPath)
 $arguments += $AppArgs
 
 Write-Host ''
-Write-Host ("Java : {0} ({1})" -f $java.Version, $java.Path) -ForegroundColor Green
-Write-Host ("Jar  : {0}" -f $jarPath) -ForegroundColor Green
+Write-Host ("Java   : {0} ({1})" -f $java.Version, $java.Path) -ForegroundColor Green
+Write-Host ("Jar    : {0}" -f $jarPath) -ForegroundColor Green
+Write-Host ("Root   : {0}" -f $rootPath) -ForegroundColor Green
+if (Test-Path -LiteralPath $configFile) {
+    Write-Host ("Config : {0}" -f $configFile) -ForegroundColor Green
+} else {
+    Write-Host ("Config : {0} (noch nicht vorhanden - wird neu angelegt)" -f $configFile) -ForegroundColor Yellow
+}
 Write-Host ''
 
 & $java.Path @arguments
